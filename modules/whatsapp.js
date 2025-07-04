@@ -52,7 +52,7 @@ export async function connectToWhatsApp() {
     if (qr) {
       // Genera Data URL para frontend
       qrCodeBase64 = await QRCode.toDataURL(qr);
-      console.log("🔶 QR actualizado");
+     // console.log("🔶 QR actualizado");
     }
     if (connection === "open") {
       console.log("✅ Conectado a WhatsApp");
