@@ -63,7 +63,7 @@ mailListener.on("mail", async (mail) => {
         }
 
         // Aquí va tu lógica real
-    } /* else {
+    } else {
     console.log("⏩ Ignorado (muy viejo):", mail.subject);
-  } */
+  }
 });
