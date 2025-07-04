@@ -56,9 +56,11 @@ mailListener.on("mail", async (mail) => {
         //console.log(JSON.stringify(mail))
 
         var htmlText = mail.html;
-        var from = mail.from.value.address;
-        var to = mail.to.value.address;
-
+        //var from = mail.from.value.address;
+        var to="" ;
+        if((typeof mail?.to?.value) === 'object') to = mail.to.value[0].address
+        if((typeof mail?.to?.value?.address) === 'string') to = mail.to.value.address
+        
         var respuesta = {
             noError: false,
         }
@@ -81,7 +83,7 @@ mailListener.on("mail", async (mail) => {
                     if (isCode) await sendMessage(numeroConPrefijo, result.code)
                     if (!isCode) await sendMessage(numeroConPrefijo, result.link)
                     var codigoOLink = isCode ? "codigo" : "link";
-                    await sendMessage(numeroConPrefijo, "SI NO pediste este codigo IGNORA estos mensajes\nLos " + codigoOLink + "s pueden llegar con cierta lentitud\nsi pediste otro, espera a que llegue por aqui.");
+                    await sendMessage(numeroConPrefijo, "SI NO pediste este "+codigoOLink+" IGNORA estos mensajes\nLos " + codigoOLink + "s pueden llegar con cierta lentitud\nsi pediste otro, espera a que llegue por aqui.");
 
                 }
             }

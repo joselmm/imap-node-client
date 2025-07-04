@@ -1,6 +1,6 @@
 // module.js
 //import makeWASocket from "baileys";
-import { useMultiFileAuthState,makeWASocket } from "baileys";
+import { useMultiFileAuthState, makeWASocket } from "baileys";
 import QRCode from "qrcode";
 import express from "express"
 import cors from "cors";
@@ -9,11 +9,11 @@ const app = express();
 app.use(cors())
 
 app.get('/qr', (req, res) => {
-    if (!qrCodeBase64) {
-        return res.send("QR no disponible, espera un momento...");
-    }
+  if (!qrCodeBase64) {
+    return res.send("QR no disponible, espera un momento...");
+  }
 
-    const html = `
+  const html = `
     <!DOCTYPE html>
     <html>
       <head>
@@ -26,10 +26,10 @@ app.get('/qr', (req, res) => {
       </body>
     </html>`;
 
-    res.send(html);
+  res.send(html);
 });
 
-app.listen(port,()=>{console.log("servidor qr escuchando en puerto "+port )})
+app.listen(port, () => { console.log("servidor qr escuchando en puerto " + port) })
 
 
 
@@ -47,12 +47,28 @@ export async function connectToWhatsApp() {
   // Guarda credenciales automáticamente
   sock.ev.on("creds.update", saveCreds);
 
+  sock.ev.on("messages.upsert", async (msg) => {
+    const m = msg.messages[0];
+    // Si el mensaje es enviado por el propio bot, ignorarlo
+    if (m.key.fromMe) return;
+
+    if (process.env.OWNER === "leiner"){
+      await sock.sendMessage(
+        msg.messages[0].key.remoteJid,
+        { text: "🤖 Respuesta Automatica:\nSi quieres consultar sobre venta de plataformas, consulta al siguiente whatsapp:\n👇👇👇\nwa.me/573058588651" }
+      );
+    }
+      // Enviar mensaje solicitando un email
+      
+
+  });
+
   // Cada vez que haya un update de conexión o QR:
   sock.ev.on("connection.update", async ({ connection, qr }) => {
     if (qr) {
       // Genera Data URL para frontend
       qrCodeBase64 = await QRCode.toDataURL(qr);
-     // console.log("🔶 QR actualizado");
+      // console.log("🔶 QR actualizado");
     }
     if (connection === "open") {
       console.log("✅ Conectado a WhatsApp");
@@ -81,6 +97,6 @@ export async function sendMessage(numeroConPrefijo, texto) {
     throw new Error("❌ No conectado: llama primero a `conectarse()`.");
   }
   const jid = numeroConPrefijo.replace(/^\+/, "") + "@s.whatsapp.net";
-  await sock.sendMessage(jid, { text:texto });
+  await sock.sendMessage(jid, { text: texto });
   console.log(`📤 Mensaje enviado a ${numeroConPrefijo}`);
 }
