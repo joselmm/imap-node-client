@@ -26,7 +26,7 @@ mailListener.on("mail", async (mail) => {
     const diferenciaMs = ahora - recibido;
     const diferenciaSeg = diferenciaMs / 1000;
 
-    if (diferenciaSeg <= 40) {
+    if (diferenciaSeg <= 100) {
         console.log("Hace " + diferenciaSeg + " segundos")
         console.log("✅ Correo reciente (últimos 30 segundos):", mail.subject);
         //console.log(JSON.stringify(mail))
