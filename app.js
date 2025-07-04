@@ -38,6 +38,9 @@ mailListener.on("mail", async (mail) => {
         var respuesta = {
             noError: false,
         }
+        //var checkedHtmlText= NodeHtmlParser.parse(htmlText);
+
+       // if(!checkedHtmlText) return console.log("El email no es html");
 
         var result = extractCode(htmlText, mail.subject);
 
