@@ -19,7 +19,7 @@ export var mailListener = new MailListener({
   mailbox: "INBOX", // mailbox to monitor,
   markSeen: true,
   fetchUnreadOnStart: false, // use it only if you want to get all unread email on lib start. Default is `false`,
-  searchFilter: [["SINCE", getFormattedDate()], "UNSEEN"], // the search filter being used after an IDLE notification has been retrieved
+  searchFilter: [/* ["SINCE", getFormattedDate()], */ "UNSEEN"], // the search filter being used after an IDLE notification has been retrieved
   attachments: false, // download attachments as they are encountered to the project directory
   // attachmentOptions: { directory: "attachments/" } // specify a download directory for attachments
 });
