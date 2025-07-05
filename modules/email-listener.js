@@ -34,6 +34,13 @@ mailListener.on("mailbox", function (mailbox) {
 
 mailListener.on("server:disconnected", function () {
   console.log("imapDisconnected");
+  console.log("RECONECTANDO SERVIDOR IMAP --> 📧📧📧");
+
+  mailListener.stop();
+
+  setTimeout(() => {
+    mailListener.start();
+  }, 3000); // espera 3 segundos antes de reconectar
 });
 
 mailListener.on("error", function (err) {
