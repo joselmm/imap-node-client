@@ -48,40 +48,41 @@ export async function connectToWhatsApp() {
   sock.ev.on("creds.update", saveCreds);
 
   sock.ev.on("messages.upsert", async (msg) => {
-    const m = msg.messages[0];
+
     // Si el mensaje es enviado por el propio bot, ignorarlo
+    const m = msg.messages[0];
+
+    // Ignorar mensajes enviados por el bot
+    if (m.key.fromMe) return;
+
+    // Obtener el texto del mensaje
     const mensaje = m.message?.conversation || m.message?.extendedTextMessage?.text || "";
 
-    if (m.key.fromMe) {
-      if(!(mensaje==="@")) return;
+    // Si el mensaje no es exactamente "@", salir
+    if (mensaje.trim() !== "@") return;
 
-      await sock.sendMessage(
-          msg.messages[0].key.remoteJid,
-          {
-            text: `Si sigo vivo 🤖 987287460247924`
-          }
-
-        );
-
-    };
+    // Responder
+    await sock.sendMessage(m.key.remoteJid, {
+      text: `Sí sigo vivo 🤖 987287460247924`
+    });
 
     if (msg.messages[0].key.remoteJid.endsWith("@g.us")) return //ignora grupos
 
-      if (process.env.OWNER === "leiner") {
-        await sock.sendMessage(
-          msg.messages[0].key.remoteJid,
-          {
-            text: `📢 *Atención*
+    if (process.env.OWNER === "leiner") {
+      await sock.sendMessage(
+        msg.messages[0].key.remoteJid,
+        {
+          text: `📢 *Atención*
 
 Este número no gestiona ventas. Este número *solo se usa para enviar códigos y links de verificación (no lo borres de tus contactos)*.
 
 Si estás interesado en adquirir plataformas de streaming, comunícate directamente con nuestro vendedor:  
 👇👇👇  
 https://wa.me/573058588651`
-          }
+        }
 
-        );
-      }
+      );
+    }
     // Enviar mensaje solicitando un email
 
 
