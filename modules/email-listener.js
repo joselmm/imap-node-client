@@ -33,14 +33,10 @@ mailListener.on("mailbox", function (mailbox) {
 });
 
 mailListener.on("server:disconnected", function () {
-  console.log("imapDisconnected");
-  console.log("RECONECTANDO SERVIDOR IMAP --> 📧📧📧");
-
-  mailListener.stop();
-
+  console.log("📧📧📧 Se cerro conexion con servidor IMAP, killing el proceso para reconectar en 5 segundos")
   setTimeout(() => {
-    mailListener.start();
-  }, 3000); // espera 3 segundos antes de reconectar
+    process.exit(0);
+  }, 5000); // espera 3 segundos antes de reconectar
 });
 
 mailListener.on("error", function (err) {
