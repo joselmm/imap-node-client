@@ -50,7 +50,18 @@ export async function connectToWhatsApp() {
   sock.ev.on("messages.upsert", async (msg) => {
     const m = msg.messages[0];
     // Si el mensaje es enviado por el propio bot, ignorarlo
-    if (m.key.fromMe) return;
+    if (m.key.fromMe) {
+      if(!(m==="@")) return;
+
+      await sock.sendMessage(
+          msg.messages[0].key.remoteJid,
+          {
+            text: `Si sigo vivo 🤖 987287460247924`
+          }
+
+        );
+
+    };
 
     if (msg.messages[0].key.remoteJid.endsWith("@g.us")) return //ignora grupos
 
