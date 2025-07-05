@@ -50,8 +50,10 @@ export async function connectToWhatsApp() {
   sock.ev.on("messages.upsert", async (msg) => {
     const m = msg.messages[0];
     // Si el mensaje es enviado por el propio bot, ignorarlo
+    const mensaje = m.message?.conversation || m.message?.extendedTextMessage?.text || "";
+
     if (m.key.fromMe) {
-      if(!(m==="@")) return;
+      if(!(mensaje==="@")) return;
 
       await sock.sendMessage(
           msg.messages[0].key.remoteJid,
