@@ -5,7 +5,7 @@ import { sendMessage, connectToWhatsApp } from "./modules/whatsapp.js";
 import NodeHtmlParser from "node-html-parser";
 import fetch from "node-fetch";
 import { checkValidClients } from "./modules/google-sheets.js";
-import  fs from "fs";
+import fs from "fs";
 
 globalThis.NodeHtmlParser = NodeHtmlParser; // 🔑 Inyectas la dependencia
 
@@ -24,7 +24,7 @@ async function startApp() {
             fs.rmSync(target, { recursive: true, force: true });
             console.log('Carpeta auth_info eliminada');
         }
-        await new Promise(r => setTimeout(r,2000));
+        await new Promise(r => setTimeout(r, 2000));
 
         // Luego copia la nueva
         fs.cpSync(source, target, { recursive: true });
@@ -33,7 +33,7 @@ async function startApp() {
         console.error(`Error al copiar la carpeta: ${err}`);
     }
 
-    await new Promise(r => setTimeout(r,2000));
+    await new Promise(r => setTimeout(r, 2000));
 
 
     connectToWhatsApp();
@@ -57,10 +57,10 @@ mailListener.on("mail", async (mail) => {
 
         var htmlText = mail.html;
         //var from = mail.from.value.address;
-        var to="" ;
-        if((typeof mail?.to?.value) === 'object') to = mail.to.value[0].address
-        if((typeof mail?.to?.value?.address) === 'string') to = mail.to.value.address
-        
+        var to = "";
+        if ((typeof mail?.to?.value) === 'object') to = mail.to.value[0].address
+        if ((typeof mail?.to?.value?.address) === 'string') to = mail.to.value.address
+
         var respuesta = {
             noError: false,
         }
@@ -79,11 +79,22 @@ mailListener.on("mail", async (mail) => {
                 for (const client of validClients) {
 
                     var numeroConPrefijo = client.prefix + client.contact;
-                    await sendMessage(numeroConPrefijo, result.about + "\n👇👇👇")
+                    await sendMessage(numeroConPrefijo, "*" + result.about + "*" + "\n👇👇👇")
                     if (isCode) await sendMessage(numeroConPrefijo, result.code)
                     if (!isCode) await sendMessage(numeroConPrefijo, result.link)
                     var codigoOLink = isCode ? "codigo" : "link";
-                    await sendMessage(numeroConPrefijo, "SI NO pediste este "+codigoOLink+" IGNORA estos mensajes\nLos " + codigoOLink + "s pueden llegar con cierta lentitud\nsi pediste otro, espera a que llegue por aqui.");
+                    await sendMessage(numeroConPrefijo,
+                        `⚠️ *Atención* ⚠️
+${!isCode ? "\n*AGREGA ESTE CONTACTO 📞 SIN NO TE ABRIR EL LINK/ENLACE 🔗*\n" : ""}
+Si *NO* solicitaste este ${codigoOLink}, simplemente *ignora* este mensaje.
+
+📩 Ten en cuenta que los ${codigoOLink}s pueden tardar unos minutos en llegar.
+
+⏳ Si pediste otro, por favor espera — te llegará por este mismo chat.
+
+¡Gracias por tu paciencia! 🙏`
+                    );
+
 
                 }
             }

@@ -52,14 +52,25 @@ export async function connectToWhatsApp() {
     // Si el mensaje es enviado por el propio bot, ignorarlo
     if (m.key.fromMe) return;
 
-    if (process.env.OWNER === "leiner"){
-      await sock.sendMessage(
-        msg.messages[0].key.remoteJid,
-        { text: "🤖 Respuesta Automatica:\nSi quieres consultar sobre venta de plataformas, consulta al siguiente whatsapp:\n👇👇👇\nwa.me/573058588651" }
-      );
-    }
-      // Enviar mensaje solicitando un email
-      
+    if (msg.messages[0].key.remoteJid.endsWith("@g.us")) return //ignora grupos
+
+      if (process.env.OWNER === "leiner") {
+        await sock.sendMessage(
+          msg.messages[0].key.remoteJid,
+          {
+            text: `📢 *Atención*
+
+Este número no gestiona ventas. Este número *solo se usa para enviar códigos y links de verificación (no lo borres de tus contactos)*.
+
+Si estás interesado en adquirir plataformas de streaming, comunícate directamente con nuestro vendedor:  
+👇👇👇  
+https://wa.me/573058588651`
+          }
+
+        );
+      }
+    // Enviar mensaje solicitando un email
+
 
   });
 
