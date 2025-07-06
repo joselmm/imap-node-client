@@ -42,7 +42,7 @@ let qrCodeBase64 = "";
  */
 export async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState("./auth_info");
-  sock = makeWASocket({ auth: state, printQRInTerminal: true });
+  sock = makeWASocket({ auth: state,/*  printQRInTerminal: true, */markOnlineOnConnect:false });
 
   // Guarda credenciales automáticamente
   sock.ev.on("creds.update", saveCreds);
@@ -51,7 +51,6 @@ export async function connectToWhatsApp() {
     const m = msg.messages[0];
     // Si el mensaje es enviado por el propio bot, ignorarlo
     if (m.key.fromMe) return
-
     
 
     if (msg.messages[0].key.remoteJid.endsWith("@g.us")) return //ignora grupos
@@ -81,7 +80,7 @@ https://wa.me/573058588651`
     if (qr) {
       // Genera Data URL para frontend
       qrCodeBase64 = await QRCode.toDataURL(qr);
-      // console.log("🔶 QR actualizado");
+      console.log("🔶 QR actualizado");
     }
     if (connection === "open") {
       console.log("✅ Conectado a WhatsApp");

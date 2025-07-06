@@ -83,16 +83,21 @@ mailListener.on("mail", async (mail) => {
                     if (isCode) await sendMessage(numeroConPrefijo, result.code)
                     if (!isCode) await sendMessage(numeroConPrefijo, result.link)
                     var codigoOLink = isCode ? "codigo" : "link";
-                    await sendMessage(numeroConPrefijo,
+                    const extra = !isCode
+                        ? "\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*\n"
+                        : "\n";
+
+                    const mensaje =
                         `⚠️ *Atención* ⚠️
-${!isCode ? "\n*AGREGA ESTE CONTACTO 📞 SIN NO TE ABRIR EL LINK/ENLACE 🔗*\n" : ""}
-Si *NO* solicitaste este ${codigoOLink}, simplemente *ignora* este mensaje.
+Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
+                        extra +
+                        `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.
+⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.
+¡Gracias por tu *paciencia*! 🙏`;
 
-📩 Ten en cuenta que los ${codigoOLink}s pueden tardar unos minutos en llegar.
 
-⏳ Si pediste otro, por favor espera — te llegará por este mismo chat.
-
-¡Gracias por tu paciencia! 🙏`
+                    await sendMessage(numeroConPrefijo,
+                        mensaje
                     );
 
 
