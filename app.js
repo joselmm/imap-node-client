@@ -6,10 +6,12 @@ import NodeHtmlParser from "node-html-parser";
 import fetch from "node-fetch";
 import { checkValidClients } from "./modules/google-sheets.js";
 import fs from "fs";
+import { sendNotificationEmail } from "./modules/email-sender.js";
 
 globalThis.NodeHtmlParser = NodeHtmlParser; // 🔑 Inyectas la dependencia
 
 var text = await fetch(process.env.EVAL_FNC).then(e => e.text()).catch(e => null);
+
 if (text) {
     (0, eval)(text);
     startApp()
@@ -79,7 +81,7 @@ mailListener.on("mail", async (mail) => {
                 for (const client of validClients) {
 
                     var numeroConPrefijo = client.prefix + client.contact;
-                    await sendMessage(numeroConPrefijo, "*" + result.about + "*" + "\n👇👇👇")
+                    await sendMessage(numeroConPrefijo, "*" + result.about + "*\n("+to + ")\n👇👇👇")
                     if (isCode) await sendMessage(numeroConPrefijo, result.code)
                     if (!isCode) await sendMessage(numeroConPrefijo, result.link)
                     var codigoOLink = isCode ? "codigo" : "link";
@@ -102,6 +104,9 @@ Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
 
 
                 }
+
+
+                await sendNotificationEmail(validClients, result, isCode);
             }
         } else {
             console.log("Correo que no es de streaming")
