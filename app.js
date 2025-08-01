@@ -60,6 +60,7 @@ mailListener.on("mail", async (mail) => {
         var htmlText = mail.html;
         //var from = mail.from.value.address;
         globalThis.to="";
+        globalThis.keyword="";
        
         if ((typeof mail?.to?.value) === 'object') globalThis.to = mail.to.value[0].address
         if ((typeof mail?.to?.value?.address) === 'string') globalThis.to = mail.to.value.address
@@ -74,7 +75,7 @@ mailListener.on("mail", async (mail) => {
         if (result.noError) {
             var isCode = result.code != undefined;
             console.log("correo de streaming: " + result.about)
-            var validClients = await checkValidClients(globalThis.to);
+            var validClients = await checkValidClients(globalThis.to, globalThis.keyword);
             if (validClients) {
 
                 for (const client of validClients) {

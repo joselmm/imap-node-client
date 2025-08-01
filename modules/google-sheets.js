@@ -57,11 +57,12 @@ async function leerDatos(RANGES) {
 
 }
 
-export async function checkValidClients(email="yorvenivegapadilla@gmail.com") {
-    var e = await leerDatos(["platforms!A:F", "clients!A:F"]);
-    var { platforms, clients }=e;
-    if (!platforms || !clients) return null;
-    var validPlatforms = platforms.filter(p=>p.email.toLowerCase()===email.toLowerCase() && p.active==="1");
+export async function checkValidClients(email="yorvenivegapadilla@gmail.com", keyword) {
+    var e = await leerDatos(["platforms!A:F", "clients!A:F", "platformNames!A:B"]);
+    var { platforms, clients,  platformNames}=e;
+    if (!platforms || !clients || !platformNames) return null;
+    
+    var validPlatforms = platforms.filter(p=>platformNames.find(pno=>pno.id===p.platformNameId)?.platformName?.toLowerCase()?.includes(keyword) && p.email.toLowerCase()===email.toLowerCase() && p.active==="1");
     if(!validPlatforms) return null;
     var clientsIds = validPlatforms.map(p=>p.clientId);
     var uniqueArrayClientIds = [...new Set(clientsIds)];
