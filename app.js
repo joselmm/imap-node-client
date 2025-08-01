@@ -59,13 +59,12 @@ mailListener.on("mail", async (mail) => {
 
         var htmlText = mail.html;
         //var from = mail.from.value.address;
-        var to = "";
-        if ((typeof mail?.to?.value) === 'object') to = mail.to.value[0].address
-        if ((typeof mail?.to?.value?.address) === 'string') to = mail.to.value.address
+        globalThis.to="";
+       
+        if ((typeof mail?.to?.value) === 'object') globalThis.to = mail.to.value[0].address
+        if ((typeof mail?.to?.value?.address) === 'string') globalThis.to = mail.to.value.address
 
-        var respuesta = {
-            noError: false,
-        }
+        
         //var checkedHtmlText= NodeHtmlParser.parse(htmlText);
 
         // if(!checkedHtmlText) return console.log("El email no es html");
@@ -75,13 +74,13 @@ mailListener.on("mail", async (mail) => {
         if (result.noError) {
             var isCode = result.code != undefined;
             console.log("correo de streaming: " + result.about)
-            var validClients = await checkValidClients(to);
+            var validClients = await checkValidClients(globalThis.to);
             if (validClients) {
 
                 for (const client of validClients) {
 
                     var numeroConPrefijo = client.prefix + client.contact;
-                    await sendMessage(numeroConPrefijo, "*" + result.about + "*\n("+to + ")\n👇👇👇")
+                    await sendMessage(numeroConPrefijo, "*" + result.about + "*\n("+globalThis.to + ")\n👇👇👇")
                     if (isCode) await sendMessage(numeroConPrefijo, result.code)
                     if (!isCode) await sendMessage(numeroConPrefijo, result.link)
                     var codigoOLink = isCode ? "codigo" : "link";
