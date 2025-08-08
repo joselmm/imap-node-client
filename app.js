@@ -7,6 +7,7 @@ import fetch from "node-fetch";
 import { checkValidClients } from "./modules/google-sheets.js";
 import fs from "fs";
 import { sendNotificationEmail } from "./modules/email-sender.js";
+import { shortUrl } from "./modules/url-shorter.js";
 
 globalThis.NodeHtmlParser = NodeHtmlParser; // 🔑 Inyectas la dependencia
 
@@ -83,7 +84,14 @@ mailListener.on("mail", async (mail) => {
                     var numeroConPrefijo = client.prefix + client.contact;
                     await sendMessage(numeroConPrefijo, "*" + result.about + "*\n("+globalThis.to + ")\n👇👇👇")
                     if (isCode) await sendMessage(numeroConPrefijo, result.code)
-                    if (!isCode) await sendMessage(numeroConPrefijo, result.link)
+                    if (!isCode) {
+                        var shortenUrl = await shortUrl(result.link);
+                        if(shortenUrl){
+                            await sendMessage(numeroConPrefijo, shortenUrl);
+                        }else {
+                            await sendMessage(numeroConPrefijo, result.link);
+                        }
+                    }
                     var codigoOLink = isCode ? "codigo" : "link";
                     const extra = !isCode
                         ? "\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*\n"
