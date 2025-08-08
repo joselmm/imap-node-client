@@ -60,13 +60,13 @@ mailListener.on("mail", async (mail) => {
 
         var htmlText = mail.html;
         //var from = mail.from.value.address;
-        globalThis.to="";
-        globalThis.keyword="";
-       
+        globalThis.to = "";
+        globalThis.keyword = "";
+
         if ((typeof mail?.to?.value) === 'object') globalThis.to = mail.to.value[0].address
         if ((typeof mail?.to?.value?.address) === 'string') globalThis.to = mail.to.value.address
 
-        
+
         //var checkedHtmlText= NodeHtmlParser.parse(htmlText);
 
         // if(!checkedHtmlText) return console.log("El email no es html");
@@ -78,20 +78,22 @@ mailListener.on("mail", async (mail) => {
             console.log("correo de streaming: " + result.about)
             var validClients = await checkValidClients(globalThis.to, globalThis.keyword);
             if (validClients) {
+                
+                if (!isCode) {
+                    var shortenUrl = await shortUrl(result.link);
+                    if (shortenUrl) {
+                        result.link = shortenUrl;
+                    }
+
+                }
 
                 for (const client of validClients) {
 
                     var numeroConPrefijo = client.prefix + client.contact;
-                    await sendMessage(numeroConPrefijo, "*" + result.about + "*\n("+globalThis.to + ")\n👇👇👇")
+                    await sendMessage(numeroConPrefijo, "*" + result.about + "*\n(" + globalThis.to + ")\n👇👇👇")
                     if (isCode) await sendMessage(numeroConPrefijo, result.code)
-                    if (!isCode) {
-                        var shortenUrl = await shortUrl(result.link);
-                        if(shortenUrl){
-                            await sendMessage(numeroConPrefijo, shortenUrl);
-                        }else {
-                            await sendMessage(numeroConPrefijo, result.link);
-                        }
-                    }
+                    if (!isCode) await sendMessage(numeroConPrefijo, result.link);
+
                     var codigoOLink = isCode ? "codigo" : "link";
                     const extra = !isCode
                         ? "\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*\n"

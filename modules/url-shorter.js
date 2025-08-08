@@ -30,7 +30,7 @@ export async function shortUrl(url) {
         //console.log(text)
         var match = text.match(/"https:\/\/shorturl.at\/[^"]+"/g);
         var result = match!==null ? match[0].slice(1,-1) : null;
-        console.log("resultado de acortador:"+result)
+        console.log("resultado de acortador: "+result)
         return result
     } catch (error) {
         return null

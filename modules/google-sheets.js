@@ -68,7 +68,7 @@ export async function checkValidClients(email="yorvenivegapadilla@gmail.com", ke
     var uniqueArrayClientIds = [...new Set(clientsIds)];
     if(!uniqueArrayClientIds) return null;
     var validClients = clients.filter(c=>uniqueArrayClientIds.includes(c.id) && c.active==="1");
-    if(!validClients) return null;
+    if(validClients?.length > 0) return null;
     return validClients;
 }
 
