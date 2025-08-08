@@ -78,7 +78,7 @@ mailListener.on("mail", async (mail) => {
             console.log("correo de streaming: " + result.about)
             var validClients = await checkValidClients(globalThis.to, globalThis.keyword);
             if (validClients) {
-                
+
                 if (!isCode) {
                     var shortenUrl = await shortUrl(result.link);
                     if (shortenUrl) {

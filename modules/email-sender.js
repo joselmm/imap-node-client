@@ -11,6 +11,7 @@ export function sendNotificationEmail(clients, info, isCode) {
         (clients.map(c => "<li>" + c.name + " (" + c.prefix + " " + c.contact + ")" + "</i>").join("")) +
         "</ul>" +
         "<h3>" + info.about + "</h3>"
+        "<h3> Correo: " + globalThis.to + "</h3>"
         ;
 
     return fetch(process.env.EMAIL_SENDER_URL,
