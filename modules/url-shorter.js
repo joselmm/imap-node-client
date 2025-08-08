@@ -27,7 +27,7 @@ export async function shortUrl(url) {
         });
         // console.log(response)
         var text = await response.text();
-        console.log(text)
+        //console.log(text)
         var match = text.match(/"https:\/\/shorturl.at\/[^"]+"/g);
         var result = match!==null ? match[0].slice(1,-1) : null;
         console.log("resultado de acortador:"+result)
