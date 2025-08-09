@@ -113,9 +113,10 @@ Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
                     );
 
 
+
                 }
 
-
+                
                 await sendNotificationEmail(validClients, result, isCode);
             }
         } else {
