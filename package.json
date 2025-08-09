@@ -5,6 +5,7 @@
     "dotenv": "^17.0.1",
     "express": "^5.1.0",
     "googleapis": "^150.0.1",
+    "link-preview-js": "^3.1.0",
     "mail-listener2": "^0.3.1",
     "mail-listener5": "^2.1.2",
     "node-fetch": "^3.3.2",
