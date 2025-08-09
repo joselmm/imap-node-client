@@ -100,7 +100,7 @@ mailListener.on("mail", async (mail) => {
                         : "\n";
 
                     const mensaje =
-                        `⚠️ *Atención* ⚠️
+                        `📢 *Atención* 📢
 Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
                         extra +
                         `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.

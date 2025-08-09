@@ -12,8 +12,8 @@ export async function sendNotificationEmail(clients, info, isCode) {
         "<ul>" +
         (clients.map(c => "<li>" + c.name + " (" + c.prefix + " " + c.contact + ")" + "</i>").join("")) +
         "</ul>" +
-        "<h3>" + info.about + "</h3>"
-    "<h3> Correo: " + globalThis.to + "</h3>"
+        "<h3>" + info.about + "</h3>" +
+        "<h3> Correo: " + globalThis.to + "</h3>"
         ;
 
     if (process.env.OWNER === "leiner") {
@@ -33,6 +33,6 @@ export async function sendNotificationEmail(clients, info, isCode) {
             })
         }
     )
-        .then(e => console.log("Se envio el email"))
-        .catch(e => console.log(e));
+    .then(e=>console.log("Se envio el email a "+process.env.NOTIFICATION_EMAIL))
+    .catch(e=>console.log(e));
 }
