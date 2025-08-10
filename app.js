@@ -61,6 +61,7 @@ mailListener.on("mail", async (mail) => {
         var htmlText = mail.html;
         //var from = mail.from.value.address;
         globalThis.to = "";
+        globalThis.profileName = null;
         globalThis.keyword = "";
 
         if ((typeof mail?.to?.value) === 'object') globalThis.to = mail.to.value[0].address
@@ -90,7 +91,20 @@ mailListener.on("mail", async (mail) => {
                 for (const client of validClients) {
 
                     var numeroConPrefijo = client.prefix + client.contact;
-                    await sendMessage(numeroConPrefijo, "*" + result.about + "*\n(" + globalThis.to + ")\n👇👇👇")
+                    const boldAbout = result.about
+                        .split("\n")
+                        .map(line => `*${line}*`)
+                        .join("\n");
+
+                    await sendMessage(
+                        numeroConPrefijo,
+                        `${boldAbout}\n(${globalThis.to})` +
+                        (globalThis.profileName ? `\n*Perfil:* ${globalThis.profileName}` : "") +
+                        `\n👇👇👇`
+                    );
+
+
+
                     if (isCode) await sendMessage(numeroConPrefijo, result.code)
                     if (!isCode) await sendMessage(numeroConPrefijo, result.link);
 
@@ -102,7 +116,9 @@ mailListener.on("mail", async (mail) => {
                     const mensaje =
                         `📢 *Atención* 📢
 Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
-                        extra +
+                        extra + (globalThis.profileName
+                            ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “${globalThis.profileName}”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
+                            : "")+
                         `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.
 ⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.
 ¡Gracias por tu *paciencia*! 🙏`;
@@ -116,7 +132,7 @@ Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
 
                 }
 
-                
+
                 await sendNotificationEmail(validClients, result, isCode);
             }
         } else {
