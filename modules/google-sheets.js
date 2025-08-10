@@ -2,6 +2,7 @@ import { google } from 'googleapis';
 import fs from "fs";
 import { config } from "dotenv";
 config()
+import { sendMessage } from "./whatsapp.js";
 
 
 // Nombre de la hoja y rango (por ejemplo: 'Hoja1!A1:C5')
@@ -67,10 +68,18 @@ export async function checkValidClients(email = "yorvenivegapadilla@gmail.com", 
 
     if (globalThis.profileName) {
         validPlatforms = compareProfileNames(validPlatforms);
-        if (validPlatforms.length === 0) return null;
+        if (validPlatforms.length === 0) {
+
+            var mess=
+            "❌ No se pudo enviar el link/codigo en alguna cuenta '"+keyword+"' ("+email.toLowerCase()+") porque no se encontro el perfil '"+globalThis.profileName+"'";
+            ;
+            await sendMessage(process.env.WHATSAPP_CONTACT, mess)
+            
+        
+            return null
+        
+        };
     }
-
-
 
     var clientsIds = validPlatforms.map(p => p.clientId);
     var uniqueArrayClientIds = [...new Set(clientsIds)];
