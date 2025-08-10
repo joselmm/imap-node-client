@@ -71,7 +71,7 @@ export async function checkValidClients(email = "yorvenivegapadilla@gmail.com", 
         if (validPlatforms.length === 0) {
 
             var mess=
-            "❌ No se pudo enviar el link/codigo en alguna cuenta '"+keyword+"' ("+email.toLowerCase()+") porque no se encontro el perfil '"+globalThis.profileName+"'";
+            "❌ No se pudo enviar el link/codigo en alguna cuenta '"+keyword+"' ("+email.toLowerCase()+") porque no se encontro el perfil '"+globalThis.profileName+"' en la base de datos";
             ;
             await sendMessage(process.env.WHATSAPP_CONTACT, mess)
             
