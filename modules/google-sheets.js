@@ -63,7 +63,7 @@ export async function checkValidClients(email = "yorvenivegapadilla@gmail.com", 
     var { platforms, clients, platformNames } = e;
     if (!platforms || !clients || !platformNames) return null;
 
-    var validPlatforms = platforms.filter(p => platformNames.find(pno => pno.id === p.platformNameId)?.platformName?.toLowerCase()?.includes(keyword) && p.email.toLowerCase() === email.toLowerCase() && p.active === "1");
+    var validPlatforms = platforms.filter(p => platformNames.find(pno => pno.id === p.platformNameId)?.platformName?.toLowerCase()?.includes(keyword) && p.email.toLowerCase().trim() === email.toLowerCase().trim() && p.active === "1");
     if (!validPlatforms) return null;
 
     if (globalThis.profileName) {
