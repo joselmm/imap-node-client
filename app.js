@@ -91,6 +91,8 @@ mailListener.on("mail", async (mail) => {
                 for (const client of validClients) {
 
                     var numeroConPrefijo = client.prefix + client.contact;
+                    numeroConPrefijo= numeroConPrefijo.replaceAll(" ","");
+
                     const boldAbout = result.about
                         .split("\n")
                         .map(line => `*${line}*`)
