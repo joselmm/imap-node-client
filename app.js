@@ -119,7 +119,7 @@ mailListener.on("mail", async (mail) => {
                         `📢 *Atención* 📢
 Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
                         extra + (globalThis.profileName
-                            ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “${globalThis.profileName}”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
+                            ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${globalThis.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
                             : "")+
                         `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.
 ⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.
