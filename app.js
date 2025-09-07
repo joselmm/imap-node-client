@@ -60,24 +60,34 @@ mailListener.on("mail", async (mail) => {
 
         var htmlText = mail.html;
         //var from = mail.from.value.address;
-        globalThis.to = "";
-        globalThis.profileName = null;
-        globalThis.keyword = "";
+        const context = {
+          to: "",
+          from: "",
+          profileName: null,
+          keyword: ""
+        };
+    
 
-        if ((typeof mail?.to?.value) === 'object') globalThis.to = mail.to.value[0].address
-        if ((typeof mail?.to?.value?.address) === 'string') globalThis.to = mail.to.value.address
+        if ((typeof mail?.to?.value) === 'object') context.to = mail.to.value[0].address
+        if ((typeof mail?.to?.value?.address) === 'string') context.to = mail.to.value.address
 
 
+        if ((typeof mail?.from?.value) === 'object') context.from = mail.from.value[0].address
+        if ((typeof mail?.from?.value?.address) === 'string') context.from = mail.from.value.address
         //var checkedHtmlText= NodeHtmlParser.parse(htmlText);
 
         // if(!checkedHtmlText) return console.log("El email no es html");
 
-        var result = extractCode(htmlText, mail.subject);
+        // cambiogpt: crear context local con los valores actuales de to/from para pasar a extractCode
+        
+
+        // cambiogpt: pasar context a extractCode para que los verify* lo puedan modificar
+        var result = extractCode(htmlText, mail.subject, context);
 
         if (result.noError) {
             var isCode = result.code !== undefined;
             console.log("correo de streaming: " + result.about)
-            var validClients = await checkValidClients(globalThis.to, globalThis.keyword);
+            var validClients = await checkValidClients(context);
             if (validClients) {
 
                 if (!isCode) {
@@ -146,3 +156,4 @@ Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
         console.log("⏩ Ignorado (muy viejo):", mail.subject);
     }
 });
+

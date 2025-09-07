@@ -58,20 +58,22 @@ async function leerDatos(RANGES) {
 
 }
 
-export async function checkValidClients(email = "yorvenivegapadilla@gmail.com", keyword) {
+export async function checkValidClients(context) {
+    
+
     var e = await leerDatos(["platforms!A:T", "clients!A:F", "platformNames!A:B"]);
     var { platforms, clients, platformNames } = e;
     if (!platforms || !clients || !platformNames) return null;
 
-    var validPlatforms = platforms.filter(p => platformNames.find(pno => pno.id === p.platformNameId)?.platformName?.toLowerCase()?.includes(keyword) && p.email.toLowerCase().trim() === email.toLowerCase().trim() && p.active === "1" && (""+p.withCredentials) === "1");
+    var validPlatforms = platforms.filter(p => platformNames.find(pno => pno.id === p.platformNameId)?.platformName?.toLowerCase()?.includes(context.keyword) && p.email.toLowerCase().trim() === context.to.toLowerCase().trim() && p.active === "1" && (""+p.withCredentials) === "1");
     if (!validPlatforms) return null;
 
-    if (globalThis.profileName) {
-        validPlatforms = compareProfileNames(validPlatforms);
+    if (context.profileName) {
+        validPlatforms = compareProfileNames(validPlatforms, context.profileName);
         if (validPlatforms.length === 0) {
 
             var mess=
-            "❌ No se pudo enviar el link/codigo en alguna cuenta '"+keyword+"' ("+email.toLowerCase()+") porque no se encontro el perfil '"+globalThis.profileName+"' en la base de datos";
+            "❌ No se pudo enviar el link/codigo en alguna cuenta '"+context.keyword+"' ("+context.to.toLowerCase()+") porque no se encontro el perfil '"+context.profileName+"' en la base de datos";
             ;
             await sendMessage(process.env.WHATSAPP_CONTACT, mess)
             
@@ -90,10 +92,10 @@ export async function checkValidClients(email = "yorvenivegapadilla@gmail.com", 
 }
 
 
-function compareProfileNames(validPlatforms) {
+function compareProfileNames(validPlatforms, profileName) {
   return validPlatforms.filter(po => 
     po.profileName && 
-    normalizarTexto(po.profileName).includes(normalizarTexto(globalThis.profileName))
+    normalizarTexto(po.profileName).includes(normalizarTexto(profileName))
   );
 }
 
