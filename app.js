@@ -110,8 +110,8 @@ mailListener.on("mail", async (mail) => {
 
                     await sendMessage(
                         numeroConPrefijo,
-                        `${boldAbout}\n(${globalThis.to})` +
-                        (globalThis.profileName ? `\n*Perfil:* ${globalThis.profileName}` : "") +
+                        `${boldAbout}\n(${context.to})` +
+                        (context.profileName ? `\n*Perfil:* ${context.profileName}` : "") +
                         `\n👇👇👇`
                     );
 
@@ -128,8 +128,8 @@ mailListener.on("mail", async (mail) => {
                     const mensaje =
                         `📢 *Atención* 📢
 Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
-                        extra + (globalThis.profileName
-                            ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${globalThis.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
+                        extra + (context.profileName
+                            ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${context.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
                             : "")+
                         `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.
 ⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.
@@ -145,7 +145,7 @@ Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
                 }
 
 
-                await sendNotificationEmail(validClients, result, isCode);
+                await sendNotificationEmail(validClients, result, isCode, context);
             }
         } else {
             console.log("Correo que no es de streaming")

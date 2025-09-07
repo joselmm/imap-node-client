@@ -1,6 +1,6 @@
 import { sendMessage } from "./whatsapp.js";
 import { convert } from "html-to-text";
-export async function sendNotificationEmail(clients, info, isCode) {
+export async function sendNotificationEmail(clients, info, isCode, context) {
 
     var codigoOLink = isCode ? "codigo" : "link";
     var variosOUno = clients.length > 1 ? "varios clientes" : "un cliente"
@@ -15,11 +15,11 @@ export async function sendNotificationEmail(clients, info, isCode) {
         clients.map(c => "<li>" + c.name + " (" + c.prefix + " " + c.contact + ")" + "</i>").join("") +
         "</ul>" +
         "<h3>" + info.about + "</h3>" +
-        (globalThis.profileName
-            ? "<h3>Nombre Perfil: " + globalThis.profileName + "</h3>"
+        (context.profileName
+            ? "<h3>Nombre Perfil: " + context.profileName + "</h3>"
             : ""
         ) +
-        "<h3> Correo: " + globalThis.to + "</h3>";
+        "<h3> Correo: " + context.to + "</h3>";
 
 
     if (process.env.OWNER === "leiner") {
