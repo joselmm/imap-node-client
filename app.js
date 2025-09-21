@@ -61,12 +61,12 @@ mailListener.on("mail", async (mail) => {
         var htmlText = mail.html;
         //var from = mail.from.value.address;
         const context = {
-          to: "",
-          from: "",
-          profileName: null,
-          keyword: ""
+            to: "",
+            from: "",
+            profileName: null,
+            keyword: ""
         };
-    
+
 
         if ((typeof mail?.to?.value) === 'object') context.to = mail.to.value[0].address
         if ((typeof mail?.to?.value?.address) === 'string') context.to = mail.to.value.address
@@ -79,7 +79,7 @@ mailListener.on("mail", async (mail) => {
         // if(!checkedHtmlText) return console.log("El email no es html");
 
         // cambiogpt: crear context local con los valores actuales de to/from para pasar a extractCode
-        
+
 
         // cambiogpt: pasar context a extractCode para que los verify* lo puedan modificar
         var result = extractCode(htmlText, mail.subject, context);
@@ -101,7 +101,7 @@ mailListener.on("mail", async (mail) => {
                 for (const client of validClients) {
 
                     var numeroConPrefijo = client.prefix + client.contact;
-                    numeroConPrefijo= numeroConPrefijo.replaceAll(" ","");
+                    numeroConPrefijo = numeroConPrefijo.replaceAll(" ", "");
 
                     const boldAbout = result.about
                         .split("\n")
@@ -130,7 +130,7 @@ mailListener.on("mail", async (mail) => {
 Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
                         extra + (context.profileName
                             ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${context.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
-                            : "")+
+                            : "") +
                         `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.
 ⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.
 ¡Gracias por tu *paciencia*! 🙏`;
