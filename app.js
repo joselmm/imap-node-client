@@ -20,7 +20,7 @@ if (text) {
 async function startApp() {
     const source = `./auth_info_${process.env.OWNER}`;
     const target = './auth_info';
-
+/* 
     try {
         // Si existe la carpeta de destino, la elimina
         if (fs.existsSync(target)) {
@@ -38,7 +38,7 @@ async function startApp() {
 
     await new Promise(r => setTimeout(r, 2000));
 
-
+ */
     connectToWhatsApp();
     mailListener.start();
 }
