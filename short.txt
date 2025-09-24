@@ -1,0 +1,43 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8" />
+<meta name="viewport" content="width=460" />
+<title>is.gd - URL creation script</title>
+<meta name="keywords" content="URL shortener,shorten,URL,link,smaller,shorter,hyperlink,shorten web address,v.gd,is.gd" />
+<meta name="description" content="URL creation script" />
+<link rel="stylesheet" type="text/css" href="/isgd.css" media="screen" />
+<link rel="shortcut icon" href="/isgd_favicon.ico" type="image/x-icon" /><script type="text/javascript" src="createform.js"></script>
+<script type="text/javascript" src="qrcode.js"></script>
+<script type="text/javascript" src="focusbox.js"></script></head><body>
+<div id="wrapper">
+<div id="menu">
+<a href="/index.php">Home</a><a href="/news.php">News</a><a href="/faq.php">FAQ</a><a href="/software.php">Software</a><a href="/developers.php">Developers</a><a href="/contact.php">Contact</a>
+</div>
+<div id="main"><p><b>Your shortened URL is:</b></p><input type="text" class="tb" id="short_url" value="https://is.gd/tAl4EY" onclick="select_text();" readonly="readonly"/><br /><div id="origurl">Your shortened URL goes to: https://mail.google.com/mail/mu/mp/217/#tl/priority/%5Esmartlabel_personal</div><img id="qrcode" src="placeholder.gif" alt="QR code" /><br /><br /><a id="qrlabel" onclick="load_qrcode('https://is.gd/tAl4EY'); return false" href="https://chart.apis.google.com/chart?cht=qr&amp;chs=100x100&amp;choe=UTF-8&amp;chld=H|0&amp;chl=https://is.gd/tAl4EY">Give me this URL as a QR code</a><div id="qrmessage">Tip: some QR readers fail to read mixed case URLs properly. We recommend using the lower case option or a lower case custom URL with QR codes.</div><hr /><div id="createformlabel">The first rule of shortening URLs is: you do not talk about shortening URLs.</div><form method="post" name="mainform" id="mainform" action="create.php" onsubmit="return submitForm()" >
+<div id="errortext"></div>
+<div id="urlboxcontainer"><input type="text" class="urlbox" maxlength="5000" size="55" name="url" value="" /></div>
+<div id="shorturllabel"><label onclick="shorturlon()">Further options/custom URL&#9660;</label></div>
+<div id="shorturllabel2"><label onclick="shorturloff()">&#9650;</label></div>
+<div id="shorturllabel3"><label>&nbsp;</label></div>
+<div id="shorturlboxcontainer">
+https://is.gd/<input type="text" class="shorturlbox" maxlength="30" size="30" name="shorturl" value="" onchange="shortURLChanged()" onkeyup="shortURLChanged()" onmouseout="shortURLChanged()" /></div>
+<div id="options"><input type="radio" name="opt" id="r1" value="0" checked="checked" /><label for="r1">Standard</label><input type="radio" name="opt" id="r2" value="1" /><label for="r2">Lower case</label><input type="radio" name="opt" id="r3" value="2" /><label for="r3">Lower case pronounceable</label></div>
+<div id="statsopt"><input type="checkbox" name="logstats" id="logstats" value="1" /><label for="logstats">Log statistics for this link</label></div>
+<input type="submit" class="submitbutton" value="Shorten!" />
+</form>
+
+</div>
+<div id="push"></div>
+</div>
+<div id="footer">
+<p>
+<a href="/terms.php">Terms &amp; Conditions</a> | 
+<a href="/privacy.php">Privacy Policy</a> | 
+<a href="/spam.php">Spam Policy</a> | 
+<a href="/contact.php">Report Abuse</a><br />
+&copy;is.gd 2025
+</p>
+</div>
+</body>
+</html>
