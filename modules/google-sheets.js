@@ -59,27 +59,32 @@ async function leerDatos(RANGES) {
 }
 
 export async function checkValidClients(context) {
-    
+
 
     var e = await leerDatos(["platforms!A:T", "clients!A:F", "platformNames!A:B"]);
     var { platforms, clients, platformNames } = e;
     if (!platforms || !clients || !platformNames) return null;
 
-    var validPlatforms = platforms.filter(p => platformNames.find(pno => pno.id === p.platformNameId)?.platformName?.toLowerCase()?.includes(context.keyword) && p.email.toLowerCase().trim() === context.to.toLowerCase().trim() && p.active === "1" && (""+p.withCredentials) === "1");
+    var validPlatforms = platforms.filter(p => platformNames.find(pno => pno.id === p.platformNameId)?.platformName?.toLowerCase()?.includes(context.keyword) && p.email.toLowerCase().trim() === context.to.toLowerCase().trim() && p.active === "1" && ("" + p.withCredentials) === "1");
+
+    if (context.keyword === "disney") {
+        validPlatforms = validPlatforms.filter(p => p.additionalInfo.toLowerCase().includes("{enviar_codigos_disney}"))
+    }
+
     if (!validPlatforms) return null;
 
     if (context.profileName) {
         validPlatforms = compareProfileNames(validPlatforms, context.profileName);
         if (validPlatforms.length === 0) {
 
-            var mess=
-            "❌ No se pudo enviar el link/codigo en alguna cuenta '"+context.keyword+"' ("+context.to.toLowerCase()+") porque no se encontro el perfil '"+context.profileName+"' en la base de datos";
+            var mess =
+                "❌ No se pudo enviar el link/codigo en alguna cuenta '" + context.keyword + "' (" + context.to.toLowerCase() + ") porque no se encontro el perfil '" + context.profileName + "' en la base de datos";
             ;
             await sendMessage(process.env.WHATSAPP_CONTACT, mess)
-            
-        
+
+
             return null
-        
+
         };
     }
 
@@ -93,10 +98,10 @@ export async function checkValidClients(context) {
 
 
 function compareProfileNames(validPlatforms, profileName) {
-  return validPlatforms.filter(po => 
-    po.profileName && 
-    normalizarTexto(po.profileName).includes(normalizarTexto(profileName))
-  );
+    return validPlatforms.filter(po =>
+        po.profileName &&
+        normalizarTexto(po.profileName).includes(normalizarTexto(profileName))
+    );
 }
 
 
