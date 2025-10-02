@@ -23,7 +23,7 @@ async function leerDatos(RANGES) {
         spreadsheetId: process.env.SS_ID,
         ranges: RANGES
     });
-
+//la cocacola
     const matricesDeObjetos = res.data.valueRanges.map((rango) => {
         const valores = rango.values || [];
 
