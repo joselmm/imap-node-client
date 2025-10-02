@@ -20,6 +20,10 @@ if (text) {
 async function startApp() {
     const source = `./auth_info_${process.env.OWNER}`;
     const target = './auth_info';
+    
+    
+    //algo jejej ....
+
 
     try {
         // Si existe la carpeta de destino, la elimina
