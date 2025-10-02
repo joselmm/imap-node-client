@@ -67,7 +67,7 @@ export async function checkValidClients(context) {
 
     var validPlatforms = platforms.filter(p => platformNames.find(pno => pno.id === p.platformNameId)?.platformName?.toLowerCase()?.includes(context.keyword) && p.email.toLowerCase().trim() === context.to.toLowerCase().trim() && p.active === "1" && ("" + p.withCredentials) === "1");
 
-    if (context.keyword === "disney") {
+    if (context.keyword.toLowerCase() === "disney") {
         validPlatforms = validPlatforms.filter(p => p.additionalInfo.toLowerCase().includes("{enviar_codigos_disney}"))
     }
 
