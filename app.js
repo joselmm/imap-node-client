@@ -22,7 +22,7 @@ async function startApp() {
     const target = './auth_info';
     
     
-    //algo jejej ....
+    //algo kkkkkk ....
 
 
     try {
