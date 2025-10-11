@@ -8,7 +8,7 @@ import { checkValidClients } from "./modules/google-sheets.js";
 import fs from "fs";
 import { sendNotificationEmail } from "./modules/email-sender.js";
 import { shortUrl } from "./modules/url-shorter.js";
-import path from "node:path";
+import path from "path";
 
 
 globalThis.NodeHtmlParser = NodeHtmlParser; // 🔑 Inyectas la dependencia
