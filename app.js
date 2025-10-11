@@ -25,7 +25,7 @@ async function startApp() {
 
 
 
-    //algo kkkkkk ....
+    //implementar nueva version de test.js,  para verificacion de chatgpt otp
 
 
     try {
