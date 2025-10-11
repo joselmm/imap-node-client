@@ -4,7 +4,6 @@ import QRCode from "qrcode";
 import express from "express";
 import cors from "cors";
 import fs from "fs";
-import path from "node:path";
 
 const port = process.env.PORT || 3000;
 const app = express();
