@@ -1,14 +1,20 @@
 // module.js
-//import makeWASocket from "baileys";
 import { useMultiFileAuthState, makeWASocket } from "baileys";
 import QRCode from "qrcode";
-import express from "express"
+import express from "express";
 import cors from "cors";
+import fs from "fs";
+
 const port = process.env.PORT || 3000;
 const app = express();
-app.use(cors())
+app.use(cors());
 
-app.get('/qr', (req, res) => {
+let sock = null;
+let qrCodeBase64 = "";
+let reconnectAttempts = 0;
+const MAX_RETRIES = 10;
+
+app.get("/qr", (req, res) => {
   if (!qrCodeBase64) {
     return res.send("QR no disponible, espera un momento...");
   }
@@ -29,84 +35,83 @@ app.get('/qr', (req, res) => {
   res.send(html);
 });
 
-app.listen(port, () => { console.log("servidor qr escuchando en puerto " + port) })
-
-
-
-// Estado interno
-let sock = null;
-let qrCodeBase64 = "";
+app.listen(port, () => {
+  console.log("Servidor QR escuchando en puerto " + port);
+});
 
 /**
- * Inicia la sesión de WhatsApp y genera QR cuando sea necesario.
+ * Inicia la sesión de WhatsApp en el path indicado y genera QR cuando sea necesario.
+ * @param {string} authPath - Ruta a la carpeta de autenticación (por defecto ./auth_info)
  */
-export async function connectToWhatsApp() {
-  const { state, saveCreds } = await useMultiFileAuthState("./auth_info");
-  sock = makeWASocket({ auth: state,/*  printQRInTerminal: true, */markOnlineOnConnect:false });
+export async function connectToWhatsApp(authPath = "./auth_info") {
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState(authPath);
+    sock = makeWASocket({
+      auth: state,
+      markOnlineOnConnect: false,
+    });
 
-  // Guarda credenciales automáticamente
-  sock.ev.on("creds.update", saveCreds);
+    sock.ev.on("creds.update", saveCreds);
 
-  sock.ev.on("messages.upsert", async (msg) => {
-    const m = msg.messages[0];
-    // Si el mensaje es enviado por el propio bot, ignorarlo
-    if (m.key.fromMe) return
-    
-
-    if (msg.messages[0].key.remoteJid.endsWith("@g.us")) return //ignora grupos
+    sock.ev.on("messages.upsert", async (msg) => {
+      const m = msg.messages[0];
+      if (m.key.fromMe) return;
+      if (m.key.remoteJid.endsWith("@g.us")) return;
 
       if (process.env.OWNER === "leiner") {
-        await sock.sendMessage(
-          msg.messages[0].key.remoteJid,
-          {
-            text: `📢 *Atención*
-
-Este número no gestiona ventas. Este número *solo se usa para enviar códigos y links de verificación (no lo borres de tus contactos)*.
-
-Si estás interesado en adquirir plataformas de streaming, comunícate directamente con nuestro vendedor:  
-👇👇👇  
-https://wa.me/573058588651`
-          }
-
-        );
+        await sock.sendMessage(m.key.remoteJid, {
+          text: `📢 *Atención*\n\nEste número no gestiona ventas. Solo se usa para enviar códigos y links de verificación.\n\nPara ventas, contacta al vendedor:\n👇👇👇\nhttps://wa.me/573058588651`,
+        });
       }
-    // Enviar mensaje solicitando un email
+    });
 
+    sock.ev.on("connection.update", async ({ connection, qr }) => {
+      if (qr) {
+        qrCodeBase64 = await QRCode.toDataURL(qr);
+        console.log("🔶 QR actualizado");
+      }
 
-  });
+      if (connection === "open") {
+        console.log("✅ Conectado a WhatsApp");
+        reconnectAttempts = 0; // reiniciar contador
+      } else if (connection === "close") {
+        reconnectAttempts++;
+        console.log(`⚠️ Desconectado (intento ${reconnectAttempts}/${MAX_RETRIES})`);
 
-  // Cada vez que haya un update de conexión o QR:
-  sock.ev.on("connection.update", async ({ connection, qr }) => {
-    if (qr) {
-      // Genera Data URL para frontend
-      qrCodeBase64 = await QRCode.toDataURL(qr);
-      console.log("🔶 QR actualizado");
-    }
-    if (connection === "open") {
-      console.log("✅ Conectado a WhatsApp");
-    } else if (connection === "close") {
-      console.log("⚠️ Desconectado. Reconectando...");
-      await connectToWhatsApp();
-    }
-  });
+        if (reconnectAttempts >= MAX_RETRIES) {
+          console.log("❌ Límite de reintentos alcanzado. Eliminando carpeta auth_info...");
+          try {
+            fs.rmSync(authPath, { recursive: true, force: true });
+            console.log("🧹 Carpeta auth_info eliminada. Se generará un nuevo QR.");
+          } catch (err) {
+            console.error("Error al eliminar la carpeta:", err);
+          }
+          reconnectAttempts = 0;
+        }
+
+        // Esperar 2 segundos antes de intentar reconectar
+        await new Promise((r) => setTimeout(r, 2000));
+        await connectToWhatsApp(authPath);
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error en connectToWhatsApp:", err);
+  }
 }
 
 /**
- * Devuelve el último QR generado como Data URL (base64).
- * Ideal para servir en un endpoint o mostrar en tu UI.
+ * Devuelve el último QR generado en base64.
  */
 export function getQRCode() {
   return qrCodeBase64;
 }
 
 /**
- * Envía un mensaje de texto a un número con prefijo internacional.
- * @param {string} numeroConPrefijo Ej: "+584123456789"
- * @param {string} texto            Texto a enviar
+ * Envía un mensaje de texto.
  */
 export async function sendMessage(numeroConPrefijo, texto) {
   if (!sock) {
-    throw new Error("❌ No conectado: llama primero a `conectarse()`.");
+    throw new Error("❌ No conectado: llama primero a connectToWhatsApp().");
   }
   const jid = numeroConPrefijo.replace(/^\+/, "") + "@s.whatsapp.net";
   await sock.sendMessage(jid, { text: texto });
