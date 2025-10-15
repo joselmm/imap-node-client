@@ -11,7 +11,7 @@ app.use(cors());
 let qrCodeBase64 = "";
 let pairingCode = "";
 let sock = null;
-
+/* 
 app.get("/qr", (req, res) => {
   let html = `
   <html>
@@ -32,7 +32,7 @@ app.get("/qr", (req, res) => {
 });
 
 app.listen(port, () => console.log("📡 Servidor QR en puerto " + port));
-
+ */
 /** Inicia sesión de WhatsApp */
 export async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState("./auth_info");
@@ -89,3 +89,6 @@ export async function sendMessage(numeroConPrefijo, texto) {
 export function getQRCode() {
   return qrCodeBase64 || pairingCode || null;
 }
+
+
+
