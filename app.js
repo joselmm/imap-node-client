@@ -8,8 +8,6 @@ import { checkValidClients } from "./modules/google-sheets.js";
 import fs from "fs";
 import { sendNotificationEmail } from "./modules/email-sender.js";
 import { shortUrl } from "./modules/url-shorter.js";
-import path from "path";
-
 
 globalThis.NodeHtmlParser = NodeHtmlParser; // 🔑 Inyectas la dependencia
 
@@ -21,33 +19,33 @@ if (text) {
 }
 async function startApp() {
     const source = `./auth_info_${process.env.OWNER}`;
-    const target = path.resolve("./auth_info"); // ✅ crea ruta absoluta
+    const target = './auth_info';
 
 
+    //algo kkkkkk ....
 
-    //implementar nueva version de test.js,  para verificacion de chatgpt otp
 
-
-    try {
-        // Si existe la carpeta de destino, la elimina
-        if (fs.existsSync(target)) {
-            fs.rmSync(target, { recursive: true, force: true });
-            console.log('Carpeta auth_info eliminada');
-        }
-        await new Promise(r => setTimeout(r, 2000));
-
-        // Luego copia la nueva
-        fs.cpSync(source, target, { recursive: true });
-        console.log('Se copió la carpeta de WhatsApp para ' + process.env.OWNER);
-    } catch (err) {
-        console.error(`Error al copiar la carpeta: ${err}`);
-    }
+    /*   try {
+          // Si existe la carpeta de destino, la elimina
+          if (fs.existsSync(target)) {
+              fs.rmSync(target, { recursive: true, force: true });
+              console.log('Carpeta 
+              auth_info eliminada');
+          }
+          await new Promise(r => setTimeout(r, 2000));
+  
+          // Luego copia la nueva
+          fs.cpSync(source, target, { recursive: true });
+          console.log('Se copió la carpeta de WhatsApp para ' + process.env.OWNER);
+      } catch (err) {
+          console.error(`Error al copiar la carpeta: ${err}`);
+      } */
 
     await new Promise(r => setTimeout(r, 2000));
 
 
-    connectToWhatsApp(target);
-    mailListener.start();
+    connectToWhatsApp().then(console.log("Se ejecutó el connect"));
+    // mailListener.start();
 }
 
 
@@ -105,51 +103,101 @@ mailListener.on("mail", async (mail) => {
 
                 }
 
+                /*    for (const client of validClients) {
+   
+                       var numeroConPrefijo = client.prefix + client.contact;
+                       numeroConPrefijo = numeroConPrefijo.replaceAll(" ", "");
+   
+                       const boldAbout = result.about
+                           .split("\n")
+                           .map(line => `*${line}*`)
+                           .join("\n");
+   
+                       await sendMessage(
+                           numeroConPrefijo,
+                           `${boldAbout}\n(${context.to})` +
+                           (context.profileName ? `\n*Perfil:* ${context.profileName}` : "") +
+                           `\n👇👇👇`
+                       );
+   
+   
+   
+                       if (isCode) await sendMessage(numeroConPrefijo, result.code)
+                       if (!isCode) await sendMessage(numeroConPrefijo, result.link);
+   
+                       var codigoOLink = isCode ? "codigo" : "link";
+                       const extra = !isCode
+                           ? "\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*\n"
+                           : "\n";
+   
+                       const mensaje =
+                           `📢 *Atención* 📢
+   Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
+                           extra + (context.profileName
+                               ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${context.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
+                               : "") +
+                           `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.
+   ⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.
+   ¡Gracias por tu *paciencia*! 🙏`;
+   
+   
+                       await sendMessage(numeroConPrefijo,
+                           mensaje
+                       );
+   
+   
+   
+                   } */
+
                 for (const client of validClients) {
+                    // 1️⃣ Buscar un email dentro de additionalInfo, con formato ${email:xxxxx@yyy.zzz}
+                    let recipientEmail = null;
 
-                    var numeroConPrefijo = client.prefix + client.contact;
-                    numeroConPrefijo = numeroConPrefijo.replaceAll(" ", "");
+                    if (client.additionalInfo && typeof client.additionalInfo === "string") {
+                        const match = client.additionalInfo.match(/\$\{email:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\}/);
+                        if (match && match[1]) {
+                            recipientEmail = match[1];
+                            console.log("📧 Email extraído de additionalInfo:", recipientEmail);
+                        }
+                    }
 
-                    const boldAbout = result.about
-                        .split("\n")
-                        .map(line => `*${line}*`)
-                        .join("\n");
+                    // 2️⃣ Si no hay email embebido, usar otro campo (opcional)
+                    if (!recipientEmail && client.email) {
+                        recipientEmail = client.email;
+                    }
 
-                    await sendMessage(
-                        numeroConPrefijo,
-                        `${boldAbout}\n(${context.to})` +
-                        (context.profileName ? `\n*Perfil:* ${context.profileName}` : "") +
-                        `\n👇👇👇`
-                    );
+                    // 3️⃣ Si sigue sin email, saltar o registrar
+                    if (!recipientEmail) {
+                        console.log("⚠️ No se encontró email válido para el cliente:", client.contact);
+                        continue;
+                    }
 
+                    // 4️⃣ Preparar mensaje y asunto
+                    const codigoOLink = isCode ? "código" : "link";
+                    const contenidoPrincipal = isCode ? result.code : result.link;
 
+                    const mensajeHTML = `
+    <div style="font-family:sans-serif">
+      <h2>${result.about}</h2>
+      <p>Correo destino: ${recipientEmail}</p>
+      <p>Para: ${context.to}</p>
+      ${context.profileName ? `<p><b>Perfil:</b> ${context.profileName}</p>` : ""}
+      <p><b>${codigoOLink.toUpperCase()}:</b> ${contenidoPrincipal}</p>
+      <hr>
+      <p>📢 <b>Atención</b><br>
+      Si <b>no</b> solicitaste este ${codigoOLink}, simplemente ignora este mensaje.</p>
+      ${!isCode ? "<p>Agrega este contacto 📞 si no te deja abrir el enlace 🔗.</p>" : ""}
+      <p>Gracias por tu paciencia 🙏</p>
+    </div>
+  `;
 
-                    if (isCode) await sendMessage(numeroConPrefijo, result.code)
-                    if (!isCode) await sendMessage(numeroConPrefijo, result.link);
+                    const subject = `${isCode ? "Código" : "Link"} de verificación - ${context.keyword}`;
 
-                    var codigoOLink = isCode ? "codigo" : "link";
-                    const extra = !isCode
-                        ? "\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*\n"
-                        : "\n";
-
-                    const mensaje =
-                        `📢 *Atención* 📢
-Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
-                        extra + (context.profileName
-                            ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${context.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
-                            : "") +
-                        `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.
-⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.
-¡Gracias por tu *paciencia*! 🙏`;
-
-
-                    await sendMessage(numeroConPrefijo,
-                        mensaje
-                    );
-
-
-
+                    // 5️⃣ Enviar por GAS
+                    await sendViaGAS(recipientEmail, subject, mensajeHTML);
                 }
+
+
 
 
                 await sendNotificationEmail(validClients, result, isCode, context);
@@ -164,3 +212,26 @@ Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` +
     }
 });
 
+
+// Nueva función para enviar por GAS
+async function sendViaGAS(recipientEmail, subject, htmlBody) {
+  const gasUrl = process.env.EMAIL_SENDER_URL;
+  
+  try {
+    const payload = {
+      recipient: recipientEmail,
+      subject: subject,
+      emailBody: htmlBody
+    };
+
+    const res = await fetch(gasUrl, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+
+    const text = await res.text();
+    console.log("📧 Enviado vía GAS:", recipientEmail, "→", text);
+  } catch (err) {
+    console.error("❌ Error enviando vía GAS:", err.message);
+  }
+}
