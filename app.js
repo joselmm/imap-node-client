@@ -173,7 +173,6 @@ mailListener.on("mail", async (mail) => {
                     const mensajeHTML = `
     <div style="font-family:sans-serif">
       <h2>${result.about}</h2>
-      <p>Correo destino: ${recipientEmail}</p>
       <p>Para: ${context.to}</p>
       ${context.profileName ? `<p><b>Perfil:</b> ${context.profileName}</p>` : ""}
       <p><b>${codigoOLink.toUpperCase()}:</b> ${contenidoPrincipal}</p>
