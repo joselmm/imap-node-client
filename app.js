@@ -44,8 +44,9 @@ async function startApp() {
     await new Promise(r => setTimeout(r, 2000));
 
 
-    connectToWhatsApp().then(console.log("Se ejecutó el connect"));
-    // mailListener.start();
+    //connectToWhatsApp().then(console.log("Se ejecutó el connect"));
+
+    mailListener.start();
 }
 
 
@@ -161,7 +162,7 @@ mailListener.on("mail", async (mail) => {
                     // 2️⃣ Verificar si es un email válido (regex)
                     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
                     if (!recipientEmail || !emailRegex.test(recipientEmail)) {
-                        console.log("⚠️ Email no válido o ausente en client.emailContact:", client.emailContact,", cliente nombre es: "+client.name);
+                        console.log("⚠️ Email no válido o ausente en client.emailContact:", client.emailContact, ", cliente nombre es: " + client.name);
                         continue; // saltar al siguiente cliente
                     }
 
