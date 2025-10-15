@@ -1,7 +1,12 @@
 node_modules
 .env
-# Sesiones y caché de WhatsApp Web
-*/session/
-.wwebjs_cache/
-auth_info_*/
-.auth_info/
+# Ignorar archivos bloqueados o temporales de Chrome / WhatsApp
+**/*.pma
+**/LOCK
+**/LOG
+**/LOG.old
+**/CURRENT
+**/DevToolsActivePort
+**/*.tmp
+
+

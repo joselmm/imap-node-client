@@ -2,49 +2,81 @@ import fs from "fs";
 import archiver from "archiver";
 
 async function compressSessions() {
-  const outputPath = "./backups/sesiones_backup.zip";
+  const backupDir = "./backups";
+  const outputPath = `${backupDir}/backup.zip`;
 
   // Crear carpeta backups si no existe
-  if (!fs.existsSync("./backups")) {
-    fs.mkdirSync("./backups");
+  if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
   }
 
   const output = fs.createWriteStream(outputPath);
   const archive = archiver("zip", { zlib: { level: 9 } });
 
-  // Logs
   output.on("close", () => {
-    console.log(`✅ Backup creado: ${outputPath}`);
+    console.log(`✅ Backup creado correctamente: ${outputPath}`);
     console.log(`🗜️  Tamaño total: ${archive.pointer()} bytes`);
   });
 
   archive.on("warning", (err) => {
-    if (err.code === "ENOENT") console.warn("⚠️", err);
-    else throw err;
+    if (err.code === "ENOENT") {
+      console.warn("⚠️ Archivo no encontrado (ignorado):", err.message);
+    } else {
+      console.warn("⚠️ Advertencia:", err.message);
+    }
   });
 
   archive.on("error", (err) => {
-    throw err;
+    console.error("❌ Error al comprimir:", err.message);
   });
 
   archive.pipe(output);
 
-  // 📦 Agregar las carpetas que quieras comprimir
-  const foldersToBackup = ["jose/session", "leiner/session", ".wwebjs_cache"];
-
-  for (const folder of foldersToBackup) {
-    if (fs.existsSync(folder)) {
-      archive.directory(folder, folder.replace(/\//g, "_"));
-      console.log(`📁 Añadiendo carpeta: ${folder}`);
-    } else {
-      console.log(`⚠️ Carpeta no encontrada: ${folder}`);
-    }
+  // === Carpeta de caché (.wwebjs_cache) ===
+  const cacheFolder = ".wwebjs_cache";
+  if (fs.existsSync(cacheFolder)) {
+    console.log(`📦 Añadiendo carpeta: ${cacheFolder}`);
+    archive.glob("**/*", {
+      cwd: cacheFolder,
+      dot: true,
+      ignore: [
+        "**/*.pma",
+        "**/LOCK",
+        "**/LOG",
+        "**/LOG.old",
+        "**/CURRENT",
+        "**/DevToolsActivePort",
+        "**/*.tmp",
+      ],
+    }, { prefix: cacheFolder });
+  } else {
+    console.warn(`⚠️ Carpeta no encontrada: ${cacheFolder}`);
   }
 
-  // Finalizar compresión
+  // === Carpeta de sesiones (wa-sessions) ===
+  const sessionsFolder = "wa-sessions";
+  if (fs.existsSync(sessionsFolder)) {
+    console.log(`📦 Añadiendo carpeta: ${sessionsFolder}`);
+    archive.glob("**/*", {
+      cwd: sessionsFolder,
+      dot: true,
+      ignore: [
+        "**/*.pma",
+        "**/LOCK",
+        "**/LOG",
+        "**/LOG.old",
+        "**/CURRENT",
+        "**/DevToolsActivePort",
+        "**/*.tmp",
+      ],
+    }, { prefix: sessionsFolder });
+  } else {
+    console.warn(`⚠️ Carpeta no encontrada: ${sessionsFolder}`);
+  }
+
   await archive.finalize();
 }
 
 compressSessions().catch((err) => {
-  console.error("❌ Error al comprimir sesiones:", err.message);
+  console.error("❌ Error global:", err.message);
 });

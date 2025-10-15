@@ -15,7 +15,7 @@ let isReady = false;
 
 const client = new Client({
   authStrategy: new LocalAuth({
-    dataPath: process.env.OWNER || './session'
+    dataPath: "./wa-sessions/"+process.env.OWNER
   }),
   puppeteer: {
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
