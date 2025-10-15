@@ -61,7 +61,7 @@ async function leerDatos(RANGES) {
 export async function checkValidClients(context) {
 
 
-    var e = await leerDatos(["platforms!A:T", "clients!A:F", "platformNames!A:B"]);
+    var e = await leerDatos(["platforms!A:T", "clients!A:H", "platformNames!A:B"]);
     var { platforms, clients, platformNames } = e;
     if (!platforms || !clients || !platformNames) return null;
 

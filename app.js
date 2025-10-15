@@ -153,23 +153,16 @@ mailListener.on("mail", async (mail) => {
                     // 1️⃣ Buscar un email dentro de additionalInfo, con formato ${email:xxxxx@yyy.zzz}
                     let recipientEmail = null;
 
-                    if (client.additionalInfo && typeof client.additionalInfo === "string") {
-                        const match = client.additionalInfo.match(/\$\{email:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\}/);
-                        if (match && match[1]) {
-                            recipientEmail = match[1];
-                            console.log("📧 Email extraído de additionalInfo:", recipientEmail);
-                        }
+                    // 1️⃣ Tomar el email y limpiar espacios
+                    if (client.emailContact && typeof client.emailContact === "string") {
+                        recipientEmail = client.emailContact.trim();
                     }
 
-                    // 2️⃣ Si no hay email embebido, usar otro campo (opcional)
-                    if (!recipientEmail && client.email) {
-                        recipientEmail = client.email;
-                    }
-
-                    // 3️⃣ Si sigue sin email, saltar o registrar
-                    if (!recipientEmail) {
-                        console.log("⚠️ No se encontró email válido para el cliente:", client.contact);
-                        continue;
+                    // 2️⃣ Verificar si es un email válido (regex)
+                    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+                    if (!recipientEmail || !emailRegex.test(recipientEmail)) {
+                        console.log("⚠️ Email no válido o ausente en client.emailContact:", client.emailContact,", cliente nombre es: "+client.name);
+                        continue; // saltar al siguiente cliente
                     }
 
                     // 4️⃣ Preparar mensaje y asunto
@@ -215,23 +208,23 @@ mailListener.on("mail", async (mail) => {
 
 // Nueva función para enviar por GAS
 async function sendViaGAS(recipientEmail, subject, htmlBody) {
-  const gasUrl = process.env.EMAIL_SENDER_URL;
-  
-  try {
-    const payload = {
-      recipient: recipientEmail,
-      subject: subject,
-      emailBody: htmlBody
-    };
+    const gasUrl = process.env.EMAIL_SENDER_URL;
 
-    const res = await fetch(gasUrl, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
+    try {
+        const payload = {
+            recipient: recipientEmail,
+            subject: subject,
+            emailBody: htmlBody
+        };
 
-    const text = await res.text();
-    console.log("📧 Enviado vía GAS:", recipientEmail, "→", text);
-  } catch (err) {
-    console.error("❌ Error enviando vía GAS:", err.message);
-  }
+        const res = await fetch(gasUrl, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+
+        const text = await res.text();
+        console.log("📧 Enviado vía GAS:", recipientEmail, "→", text);
+    } catch (err) {
+        console.error("❌ Error enviando vía GAS:", err.message);
+    }
 }
