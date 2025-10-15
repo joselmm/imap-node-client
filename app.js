@@ -267,7 +267,7 @@ mailListener.on("mail", async (mail) => {
             console.log("Correo que no es de streaming")
         }
 
-        // Aquí va tu lógica real
+        //algo para aqui
     } else {
         console.log("⏩ Ignorado (muy viejo):", mail.subject);
     }
