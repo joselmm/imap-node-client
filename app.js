@@ -46,7 +46,7 @@ async function startApp() {
 
     //await new Promise(r => setTimeout(r, 2000));
 
-    await restoreBackup();
+    //await restoreBackup();
     connectToWhatsApp()
 
     mailListener.start();
@@ -54,29 +54,6 @@ async function startApp() {
 
 
 
-async function restoreBackup() {
-  const backupPath = "./backups/backup.zip";
-  const extractTo = "./"; // raíz del proyecto
-
-  if (!fs.existsSync(backupPath)) {
-    console.error("❌ No se encontró el archivo de backup:", backupPath);
-    return;
-  }
-
-  console.log("🗂️  Iniciando restauración desde:", backupPath);
-
-  try {
-    await fs
-      .createReadStream(backupPath)
-      .pipe(unzipper.Extract({ path: extractTo }))
-      .promise();
-
-    console.log("✅ Restauración completada exitosamente.");
-    console.log("📁 Carpetas restauradas: .wwebjs_cache/ y wa-sessions/");
-  } catch (err) {
-    console.error("❌ Error al descomprimir:", err.message);
-  }
-}
 
 
 
