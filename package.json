@@ -24,8 +24,5 @@
     "unzipper": "^0.12.3",
     "whatsapp-web.js": "^1.34.1"
   },
-  "overrides": {
-    "puppeteer": "23.1.1"
-  },
   "type": "module"
 }

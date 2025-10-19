@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config();
 import { mailListener } from "./modules/email-listener.js";
-//import { sendMessage, connectToWhatsApp } from "./whatjs.js";
+import { sendMessage, connectToWhatsApp } from "./whatjs.js";
 import NodeHtmlParser from "node-html-parser";
 import fetch from "node-fetch";
 import { checkValidClients } from "./modules/google-sheets.js";
@@ -58,7 +58,7 @@ async function startApp() {
     //await new Promise(r => setTimeout(r, 2000));
 
     //await restoreBackup();
-   // connectToWhatsApp()
+    connectToWhatsApp()
 
     mailListener.start();
 }
@@ -123,7 +123,7 @@ mailListener.on("mail", async (mail) => {
 
 
 
-                for (const client of validClients) {
+               /*  for (const client of validClients) {
                     // 1️⃣ Buscar un email dentro de additionalInfo, con formato ${email:xxxxx@yyy.zzz}
                     let recipientEmail = null;
 
@@ -161,8 +161,8 @@ mailListener.on("mail", async (mail) => {
 
                     // 5️⃣ Enviar por GAS
                     await sendViaGAS(recipientEmail, subject, mensajeHTML);
-                }
-                /* for (const client of validClients) {
+                } */
+                for (const client of validClients) {
                     // 1️⃣ Preparar número con prefijo (para WhatsApp)
                     let numeroConPrefijo = null;
                     if (client.prefix && client.contact) {
@@ -255,7 +255,7 @@ mailListener.on("mail", async (mail) => {
                         }
 
                     }
-                } */
+                }
 
 
 

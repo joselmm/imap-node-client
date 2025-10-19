@@ -37,6 +37,12 @@ client.on('ready', () => {
 client.on('message', async (msg) => {
   // Ignorar mensajes del propio bot
   if (msg.fromMe) return;
+    const text = msg.body.toLowerCase().trim();
+
+  if (text === "ping") {
+    await msg.reply("🏓 Pong!");
+  }
+
 
   // Ignorar grupos (los JID de grupos terminan en @g.us)
   if (msg.from.endsWith('@g.us')) return;
