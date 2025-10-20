@@ -62,7 +62,7 @@ export function connectToWhatsApp() {
 
   // Servidor Express
   app.listen(port, () => {
-    console.log(`🚀 Servidor Express en http://localhost:${port}/qr`);
+    console.log(`🚀 Servidor WHATSAPP Express en http://localhost:${port}/qr`);
   });
 }
 

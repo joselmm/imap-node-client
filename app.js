@@ -9,7 +9,7 @@ import { sendNotificationEmail } from "./modules/email-sender.js";
 import { shortUrl } from "./modules/url-shorter.js";
 import fs from "fs";
 import unzipper from "unzipper";
-import express from "express";
+/* import express from "express";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,7 +20,7 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`HTTP server listo en http://localhost:${PORT}`);
-});
+}); */
 
 
 globalThis.NodeHtmlParser = NodeHtmlParser; // 🔑 Inyectas la dependencia
