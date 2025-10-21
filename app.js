@@ -44,8 +44,7 @@ async function startApp() {
           // Si existe la carpeta de destino, la elimina
           if (fs.existsSync(target)) {
               fs.rmSync(target, { recursive: true, force: true });
-              console.log('Carpeta 
-              auth_info eliminada');
+              console.log('Carpeta auth_info eliminada');
           }
           await new Promise(r => setTimeout(r, 2000));
   
