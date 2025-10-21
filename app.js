@@ -40,7 +40,7 @@ async function startApp() {
     //algo kkkkkk ....
 
 
-    /*   try {
+      try {
           // Si existe la carpeta de destino, la elimina
           if (fs.existsSync(target)) {
               fs.rmSync(target, { recursive: true, force: true });
@@ -54,7 +54,7 @@ async function startApp() {
           console.log('Se copió la carpeta de WhatsApp para ' + process.env.OWNER);
       } catch (err) {
           console.error(`Error al copiar la carpeta: ${err}`);
-      } */
+      }
 
     //await new Promise(r => setTimeout(r, 2000));
 
