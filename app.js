@@ -60,7 +60,7 @@ async function startApp() {
     //await restoreBackup();
     connectToWhatsApp()
 
-   // mailListener.start();
+    mailListener.start();
 }
 
 
