@@ -1,4 +1,4 @@
-import makeWASocket, { useMultiFileAuthState, Browsers,DisconnectReason } from "baileys";
+import makeWASocket, { useMultiFileAuthState, Browsers,DisconnectReason } from "@whiskeysockets/baileys";
 import QRCode from "qrcode";
 import express from "express";
 import cors from "cors";
@@ -11,7 +11,7 @@ app.use(cors());
 let qrCodeBase64 = "";
 let pairingCode = "";
 let sock = null;
-/* 
+
 app.get("/qr", (req, res) => {
   let html = `
   <html>
@@ -32,14 +32,14 @@ app.get("/qr", (req, res) => {
 });
 
 app.listen(port, () => console.log("📡 Servidor QR en puerto " + port));
- */
+
 /** Inicia sesión de WhatsApp */
 export async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState("./auth_info");
   sock = makeWASocket({
     auth: state,
     printQRInTerminal: false, // ahora se maneja manualmente
-    browser: Browsers.macOS('Desktop'),
+    browser: Browsers.macOS('Browser'),
     markOnlineOnConnect: false
   });
 

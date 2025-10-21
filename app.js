@@ -1,7 +1,8 @@
 import { config } from "dotenv";
 config();
 import { mailListener } from "./modules/email-listener.js";
-import { sendMessage, connectToWhatsApp } from "./whatjs.js";
+//import { sendMessage, connectToWhatsApp } from "./whatjs.js";
+import { sendMessage, connectToWhatsApp } from "./modules/whatsapp.js";
 import NodeHtmlParser from "node-html-parser";
 import fetch from "node-fetch";
 import { checkValidClients } from "./modules/google-sheets.js";
@@ -60,7 +61,7 @@ async function startApp() {
     //await restoreBackup();
     connectToWhatsApp()
 
-    mailListener.start();
+   // mailListener.start();
 }
 
 
