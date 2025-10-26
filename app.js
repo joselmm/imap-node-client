@@ -197,6 +197,7 @@ mailListener.on("mail", async (mail) => {
                         `\n👇👇👇`;
 
                     const mensajeExtra =
+                        `☝️☝️☝️\n\n` +
                         `📢 *Atención* 📢\n` +
                         `Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.\n` +
                         (!isCode
