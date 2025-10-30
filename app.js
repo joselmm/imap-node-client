@@ -40,20 +40,20 @@ async function startApp() {
     //algo kkkkkk ....
 
 
-      try {
-          // Si existe la carpeta de destino, la elimina
-          if (fs.existsSync(target)) {
-              fs.rmSync(target, { recursive: true, force: true });
-              console.log('Carpeta auth_info eliminada');
-          }
-          await new Promise(r => setTimeout(r, 2000));
-  
-          // Luego copia la nueva
-          fs.cpSync(source, target, { recursive: true });
-          console.log('Se copió la carpeta de WhatsApp para ' + process.env.OWNER);
-      } catch (err) {
-          console.error(`Error al copiar la carpeta: ${err}`);
-      }
+    try {
+        // Si existe la carpeta de destino, la elimina
+        if (fs.existsSync(target)) {
+            fs.rmSync(target, { recursive: true, force: true });
+            console.log('Carpeta auth_info eliminada');
+        }
+        await new Promise(r => setTimeout(r, 2000));
+
+        // Luego copia la nueva
+        fs.cpSync(source, target, { recursive: true });
+        console.log('Se copió la carpeta de WhatsApp para ' + process.env.OWNER);
+    } catch (err) {
+        console.error(`Error al copiar la carpeta: ${err}`);
+    }
 
     //await new Promise(r => setTimeout(r, 2000));
 
@@ -115,53 +115,61 @@ mailListener.on("mail", async (mail) => {
 
                 if (!isCode) {
                     var shortenUrl = await shortUrl(result.link);
+                    console.log(shortenUrl)
                     if (shortenUrl !== null) {
                         result.link = shortenUrl;
+
+                        if (context.netflixLinkTv) {
+                            console.log(shortenUrl);
+
+                            result.link = "https://ntv.cuenticas.pro/#" + shortenUrl.split("/").pop();
+                            console.log(result.link);
+                        }
                     }
 
                 }
 
 
 
-               /*  for (const client of validClients) {
-                    // 1️⃣ Buscar un email dentro de additionalInfo, con formato ${email:xxxxx@yyy.zzz}
-                    let recipientEmail = null;
-
-                    // 1️⃣ Tomar el email y limpiar espacios
-                    if (client.emailContact && typeof client.emailContact === "string") {
-                        recipientEmail = client.emailContact.trim();
-                    }
-
-                    // 2️⃣ Verificar si es un email válido (regex)
-                    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-                    if (!recipientEmail || !emailRegex.test(recipientEmail)) {
-                        console.log("⚠️ Email no válido o ausente en client.emailContact:", client.emailContact, ", cliente nombre es: " + client.name);
-                        continue; // saltar al siguiente cliente
-                    }
-
-                    // 4️⃣ Preparar mensaje y asunto
-                    const codigoOLink = isCode ? "código" : "link";
-                    const contenidoPrincipal = isCode ? result.code : result.link;
-
-                    const mensajeHTML = `
-    <div style="font-family:sans-serif">
-      <h2>${result.about}</h2>
-      <p>Para: ${context.to}</p>
-      ${context.profileName ? `<p><b>Perfil:</b> ${context.profileName}</p>` : ""}
-      <p><b>${codigoOLink.toUpperCase()}:</b> ${contenidoPrincipal}</p>
-      <hr>
-      <p>📢 <b>Atención</b><br>
-      Si <b>no</b> solicitaste este ${codigoOLink}, simplemente ignora este mensaje.</p>
-      ${!isCode ? "<p>Agrega este contacto 📞 si no te deja abrir el enlace 🔗.</p>" : ""}
-      <p>Gracias por tu paciencia 🙏</p>
-    </div>
-  `;
-
-                    const subject = `${isCode ? "Código" : "Link"} de verificación - ${context.keyword}`;
-
-                    // 5️⃣ Enviar por GAS
-                    await sendViaGAS(recipientEmail, subject, mensajeHTML);
-                } */
+                /*  for (const client of validClients) {
+                     // 1️⃣ Buscar un email dentro de additionalInfo, con formato ${email:xxxxx@yyy.zzz}
+                     let recipientEmail = null;
+ 
+                     // 1️⃣ Tomar el email y limpiar espacios
+                     if (client.emailContact && typeof client.emailContact === "string") {
+                         recipientEmail = client.emailContact.trim();
+                     }
+ 
+                     // 2️⃣ Verificar si es un email válido (regex)
+                     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+                     if (!recipientEmail || !emailRegex.test(recipientEmail)) {
+                         console.log("⚠️ Email no válido o ausente en client.emailContact:", client.emailContact, ", cliente nombre es: " + client.name);
+                         continue; // saltar al siguiente cliente
+                     }
+ 
+                     // 4️⃣ Preparar mensaje y asunto
+                     const codigoOLink = isCode ? "código" : "link";
+                     const contenidoPrincipal = isCode ? result.code : result.link;
+ 
+                     const mensajeHTML = `
+     <div style="font-family:sans-serif">
+       <h2>${result.about}</h2>
+       <p>Para: ${context.to}</p>
+       ${context.profileName ? `<p><b>Perfil:</b> ${context.profileName}</p>` : ""}
+       <p><b>${codigoOLink.toUpperCase()}:</b> ${contenidoPrincipal}</p>
+       <hr>
+       <p>📢 <b>Atención</b><br>
+       Si <b>no</b> solicitaste este ${codigoOLink}, simplemente ignora este mensaje.</p>
+       ${!isCode ? "<p>Agrega este contacto 📞 si no te deja abrir el enlace 🔗.</p>" : ""}
+       <p>Gracias por tu paciencia 🙏</p>
+     </div>
+   `;
+ 
+                     const subject = `${isCode ? "Código" : "Link"} de verificación - ${context.keyword}`;
+ 
+                     // 5️⃣ Enviar por GAS
+                     await sendViaGAS(recipientEmail, subject, mensajeHTML);
+                 } */
                 for (const client of validClients) {
                     // 1️⃣ Preparar número con prefijo (para WhatsApp)
                     let numeroConPrefijo = null;
@@ -215,7 +223,7 @@ mailListener.on("mail", async (mail) => {
                         try {
                             await sendMessage(numeroConPrefijo, mensajeWhatsApp);
                             await sendMessage(numeroConPrefijo, contenidoPrincipal);
-                            if(process.env.SEND_ADDITIONAL_INFO){
+                            if (process.env.SEND_ADDITIONAL_INFO) {
                                 await sendMessage(numeroConPrefijo, mensajeExtra);
                             }
                             console.log(`📱 Enviado a ${numeroConPrefijo} por WhatsApp`);
