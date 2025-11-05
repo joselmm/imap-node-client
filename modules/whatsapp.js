@@ -39,8 +39,9 @@ export async function connectToWhatsApp() {
   sock = makeWASocket({
     auth: state,
     printQRInTerminal: false, // ahora se maneja manualmente
-    browser: Browsers.macOS('Browser'),
-    markOnlineOnConnect: false
+    browser: Browsers.windows('Browser'),
+    markOnlineOnConnect: false,
+    syncFullHistory:false
   });
 
   sock.ev.on("creds.update", saveCreds);
