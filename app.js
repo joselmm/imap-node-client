@@ -33,7 +33,7 @@ if (text) {
     startApp()
 }
 async function startApp() {
-   // const source = `./auth_info_${process.env.OWNER}`;
+    // const source = `./auth_info_${process.env.OWNER}`;
     const target = './auth_info';
 
 
@@ -45,7 +45,6 @@ async function startApp() {
         if (fs.existsSync(target)) {
             fs.rmSync(target, { recursive: true, force: true });
             console.log('Carpeta auth_info eliminada');
-            await downloadAndUnzipFromGAS();
             console.log("Se descargo y descomprimio el archivo zip")
         }
 
@@ -57,6 +56,9 @@ async function startApp() {
     } catch (err) {
         console.error(`Error al copiar la carpeta: ${err}`);
     }
+
+    await downloadAndUnzipFromGAS();
+
 
     await new Promise(r => setTimeout(r, 2000));
 
