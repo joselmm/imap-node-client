@@ -1,55 +1,24 @@
-import makeWASocket, { useMultiFileAuthState, Browsers,DisconnectReason } from "@whiskeysockets/baileys";
-import QRCode from "qrcode";
-import express from "express";
-import cors from "cors";
-import { uploadFolderZipToGAS } from "../compress-sessions.js";
+let lastTimeConected = null;
+let backupTimer = null;
+let isBackingUp = false;
+let reconnectDelay = 2000; // ms, aumentaremos con backoff si falla
 
-const port = process.env.PORT || 3000;
-const app = express();
-app.use(cors());
-
-// Variable para almacenar el último QR
-let qrCodeBase64 = "";
-let pairingCode = "";
-let sock = null;
-
-app.get("/qr", (req, res) => {
-  let html = `
-  <html>
-  <head><meta charset="utf-8"><title>QR WhatsApp</title></head>
-  <body style="font-family:sans-serif; text-align:center; margin-top:3rem;">
-    <h2>Conecta tu WhatsApp</h2>
-  `;
-
-  if (qrCodeBase64)
-    html += `<img src="${qrCodeBase64}" alt="QR" width="300"/>`;
-  else if (pairingCode)
-    html += `<h3>🔢 Código de vinculación: ${pairingCode}</h3>`;
-  else
-    html += `<p>Esperando QR o código...</p>`;
-
-  html += "</body></html>";
-  res.send(html);
-});
-
-app.listen(port, () => console.log("📡 Servidor QR en puerto " + port));
-
-/** Inicia sesión de WhatsApp */
 export async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState("./auth_info");
   sock = makeWASocket({
     auth: state,
-    printQRInTerminal: false, // ahora se maneja manualmente
+    printQRInTerminal: false,
     browser: Browsers.windows('Browser'),
     markOnlineOnConnect: false,
-    syncFullHistory:false
+    syncFullHistory: false
   });
 
   sock.ev.on("creds.update", saveCreds);
 
   sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect, qr, receivedPendingNotifications, isNewLogin, pairingCode: code } = update;
+    const { connection, lastDisconnect, qr, pairingCode: code } = update;
 
+    // QR / pairing
     if (qr) {
       try {
         qrCodeBase64 = await QRCode.toDataURL(qr);
@@ -59,39 +28,75 @@ export async function connectToWhatsApp() {
         console.error("Error generando QR:", err);
       }
     }
-
     if (code) {
       pairingCode = code;
       qrCodeBase64 = "";
       console.log(`🔢 Código de vinculación: ${code}`);
-      console.log("➡️ En tu WhatsApp: Ajustes → Dispositivos vinculados → Vincular con código");
     }
 
     if (connection === "open") {
       console.log("✅ Conectado a WhatsApp");
-      await uploadFolderZipToGAS().then(console.log("se subio el archivo de sesion a GAS desde whatsapp")).catch(err=>console.error("Error subiendo archivo sesion a GAS: "+err.message));
+      // registrar tiempo y (re)programar backup estable (debounce)
+      lastTimeConected = Date.now();
+
+      // si ya había un timer, cancelarlo (evita duplicados)
+      if (backupTimer) {
+        clearTimeout(backupTimer);
+        backupTimer = null;
+      }
+
+      // programar backup tras 10s de estabilidad
+      backupTimer = setTimeout(async () => {
+        // protección contra backups concurrentes
+        if (isBackingUp) {
+          console.log("Backup ya en progreso, salto.");
+          return;
+        }
+
+        // comprobamos que hace >=10s desde la última apertura
+        if (lastTimeConected && (Date.now() - lastTimeConected) >= 10000) {
+          isBackingUp = true;
+          try {
+            console.log("Pasaron 10 segundos — guardando session en drive...");
+            await uploadFolderZipToGAS();
+            console.log("✅ Se subió el archivo de sesión a GAS desde WhatsApp");
+          } catch (err) {
+            console.error("Error subiendo archivo sesion a GAS:", err?.message || err);
+          } finally {
+            isBackingUp = false;
+          }
+        } else {
+          console.log("No se cumplen 10s de estabilidad, se omite backup.");
+        }
+      }, 10000);
+
+      // resetear pairing/qr
       qrCodeBase64 = "";
       pairingCode = "";
+
+      // reset reconnectDelay si se conectó bien
+      reconnectDelay = 2000;
     } else if (connection === "close") {
+      // cancelar timers / flags al desconectar
+      if (backupTimer) {
+        clearTimeout(backupTimer);
+        backupTimer = null;
+      }
+      lastTimeConected = null;
+      isBackingUp = false;
+
       const shouldReconnect =
         lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
       console.log("⚠️ Desconectado.", shouldReconnect ? "Reconectando..." : "Sesión cerrada.");
-      if (shouldReconnect) await connectToWhatsApp();
+
+      if (shouldReconnect) {
+        // reintento con backoff exponencial (no await recursivo directo)
+        setTimeout(() => {
+          // incrementa el delay con un tope para evitar bucles agresivos
+          reconnectDelay = Math.min(reconnectDelay * 1.5, 60000);
+          connectToWhatsApp().catch(err => console.error("Error re-conectando:", err));
+        }, reconnectDelay);
+      }
     }
   });
 }
-
-/** Enviar mensaje */
-export async function sendMessage(numeroConPrefijo, texto) {
-  if (!sock) throw new Error("❌ No conectado");
-  const jid = numeroConPrefijo.replace(/^\+/, "") + "@s.whatsapp.net";
-  await sock.sendMessage(jid, { text: texto });
-  console.log(`📤 Mensaje enviado a ${numeroConPrefijo}`);
-}
-
-export function getQRCode() {
-  return qrCodeBase64 || pairingCode || null;
-}
-
-
-
