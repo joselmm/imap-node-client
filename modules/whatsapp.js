@@ -2,6 +2,7 @@ import makeWASocket, { useMultiFileAuthState, Browsers,DisconnectReason } from "
 import QRCode from "qrcode";
 import express from "express";
 import cors from "cors";
+import { uploadFolderZipToGAS } from "../compress-sessions.js";
 
 const port = process.env.PORT || 3000;
 const app = express();
@@ -68,6 +69,7 @@ export async function connectToWhatsApp() {
 
     if (connection === "open") {
       console.log("✅ Conectado a WhatsApp");
+      await uploadFolderZipToGAS().then(console.log("se subio el archivo de sesion a GAS desde whatsapp")).catch(err=>console.error("Error subiendo archivo sesion a GAS: "+err.message));
       qrCodeBase64 = "";
       pairingCode = "";
     } else if (connection === "close") {
