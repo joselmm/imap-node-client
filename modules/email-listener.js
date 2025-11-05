@@ -2,6 +2,7 @@ import { MailListener } from "mail-listener5";   // NOTE: A FUTURE VERSION (rele
 import { sendMessage, connectToWhatsApp } from "./whatsapp.js";
 import { getFormattedDate } from "./getFomattedDate.js"
 import { config } from "dotenv";
+import { uploadFolderZipToGAS } from "../compress-sessions.js";
 config();
 
 
@@ -32,8 +33,9 @@ mailListener.on("mailbox", function (mailbox) {
   console.log("Total number of mails: ", mailbox.messages.total); // this field in mailbox gives the total number of emails
 });
 
-mailListener.on("server:disconnected", function () {
+mailListener.on("server:disconnected",async function () {
   console.log("📧📧📧 Se cerro conexion con servidor IMAP, killing el proceso para reconectar en 5 segundos")
+  await uploadFolderZipToGAS().then(console.log("se subio el archivo de sesion a GAS")).catch(err=>console.error("Error subiendo archivo sesion a GAS: "+err.message))
   setTimeout(() => {
     process.exit(0);
   }, 5000); // espera 3 segundos antes de reconectar

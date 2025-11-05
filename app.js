@@ -8,19 +8,19 @@ import fetch from "node-fetch";
 import { checkValidClients } from "./modules/google-sheets.js";
 import { sendNotificationEmail } from "./modules/email-sender.js";
 import { shortUrl } from "./modules/url-shorter.js";
-import fs from "fs";
-import unzipper from "unzipper";
 import express from "express";
+import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
+import fs from "fs";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get("/", (req, res) => {
-  res.send("ok");
+    res.send("ok");
 });
 
 app.listen(PORT, () => {
-  console.log(`HTTP server listo en http://localhost:${PORT}`);
+    console.log(`HTTP server listo en http://localhost:${PORT}`);
 });
 
 
@@ -33,7 +33,7 @@ if (text) {
     startApp()
 }
 async function startApp() {
-    const source = `./auth_info_${process.env.OWNER}`;
+   // const source = `./auth_info_${process.env.OWNER}`;
     const target = './auth_info';
 
 
@@ -45,17 +45,20 @@ async function startApp() {
         if (fs.existsSync(target)) {
             fs.rmSync(target, { recursive: true, force: true });
             console.log('Carpeta auth_info eliminada');
+            await downloadAndUnzipFromGAS();
+            console.log("Se descargo y descomprimio el archivo zip")
         }
-        await new Promise(r => setTimeout(r, 2000));
+
+        /* await new Promise(r => setTimeout(r, 2000));
 
         // Luego copia la nueva
         fs.cpSync(source, target, { recursive: true });
-        console.log('Se copió la carpeta de WhatsApp para ' + process.env.OWNER);
+        console.log('Se copió la carpeta de WhatsApp para ' + process.env.OWNER); */
     } catch (err) {
         console.error(`Error al copiar la carpeta: ${err}`);
     }
 
-    //await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 2000));
 
     //await restoreBackup();
     connectToWhatsApp()
