@@ -2,6 +2,8 @@ import makeWASocket, { useMultiFileAuthState, Browsers, DisconnectReason } from 
 import QRCode from "qrcode";
 import express from "express";
 import cors from "cors";
+import fs from "fs";
+import path from "path";
 import { uploadFolderZipToGAS } from "../compress-sessions.js";
 
 const port = process.env.PORT || 3000;
@@ -15,7 +17,27 @@ let sock = null;
 let lastTimeConected = null;
 let backupTimer = null;
 let isBackingUp = false;
-let reconnectDelay = 2000; // ms (backoff)
+let reconnectDelay = 2000;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const AUTH_FOLDER = "./auth_info";
+
+// 🔧 Función auxiliar para borrar y reiniciar
+function resetAuthFolder() {
+  try {
+    const authPath = path.resolve(AUTH_FOLDER);
+    if (fs.existsSync(authPath)) {
+      fs.rmSync(authPath, { recursive: true, force: true });
+      console.log("🗑️ Carpeta auth_info eliminada correctamente.");
+    }
+  } catch (err) {
+    console.error("❌ Error eliminando carpeta auth_info:", err);
+  }
+  reconnectAttempts = 0;
+  reconnectDelay = 2000;
+  console.log("🔄 Reiniciando conexión desde cero...");
+  connectToWhatsApp(); // reinicia limpio
+}
 
 // --- SERVIDOR QR ---
 app.get("/qr", (req, res) => {
@@ -31,7 +53,6 @@ app.get("/qr", (req, res) => {
     html += `<h3>🔢 Código de vinculación: ${pairingCode}</h3>`;
   else
     html += `<p>Esperando QR o código...</p>`;
-
   html += "</body></html>";
   res.send(html);
 });
@@ -41,12 +62,12 @@ app.listen(port, () => console.log("📡 Servidor QR en puerto " + port));
 
 // --- CONEXIÓN A WHATSAPP ---
 export async function connectToWhatsApp() {
-  const { state, saveCreds } = await useMultiFileAuthState("./auth_info");
+  const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
 
   sock = makeWASocket({
     auth: state,
     printQRInTerminal: false,
-    browser: Browsers.windows('Browser'),
+    browser: Browsers.windows("Browser"),
     markOnlineOnConnect: false,
     syncFullHistory: false
   });
@@ -80,15 +101,13 @@ export async function connectToWhatsApp() {
       console.log("✅ Conectado a WhatsApp");
 
       lastTimeConected = Date.now();
-
-      // Cancelar timer previo si existe
       if (backupTimer) clearTimeout(backupTimer);
 
-      // Backup cuando hayan pasado 10s sin desconexión
+      // Backup tras 10 segundos
       backupTimer = setTimeout(async () => {
         if (isBackingUp) return console.log("⏳ Backup ya en progreso, cancelado.");
 
-        if (lastTimeConected && (Date.now() - lastTimeConected) >= 10000) {
+        if (lastTimeConected && Date.now() - lastTimeConected >= 10000) {
           isBackingUp = true;
           try {
             console.log("🗄️ Pasaron 10 segundos — guardando sesión en Drive...");
@@ -104,7 +123,8 @@ export async function connectToWhatsApp() {
 
       qrCodeBase64 = "";
       pairingCode = "";
-      reconnectDelay = 2000; // reset del backoff
+      reconnectDelay = 2000;
+      reconnectAttempts = 0;
     }
 
     // Desconectado
@@ -118,11 +138,22 @@ export async function connectToWhatsApp() {
 
       console.log("⚠️ Desconectado.", shouldReconnect ? "Intentando reconectar..." : "Sesión cerrada.");
 
+      reconnectAttempts++;
+      console.log(`🔁 Intento de reconexión #${reconnectAttempts}`);
+
+      if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.warn(`❌ Se superaron ${MAX_RECONNECT_ATTEMPTS} intentos o sesión inválida.`);
+        return resetAuthFolder();
+      }
+
       if (shouldReconnect) {
         setTimeout(() => {
           reconnectDelay = Math.min(reconnectDelay * 1.5, 60000);
           connectToWhatsApp().catch(err => console.error("Error reconectando:", err));
         }, reconnectDelay);
+      } else {
+        // Si no debe reconectar, igual resetea
+        resetAuthFolder();
       }
     }
   });
