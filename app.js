@@ -176,6 +176,8 @@ mailListener.on("mail", async (mail) => {
                      await sendViaGAS(recipientEmail, subject, mensajeHTML);
                  } */
                 for (const client of validClients) {
+
+                    const noWhatsApp = typeof client.name === "string" && client.name.includes("(NoWa)");
                     // 1️⃣ Preparar número con prefijo (para WhatsApp)
                     let numeroConPrefijo = null;
                     if (client.prefix && client.contact) {
@@ -224,7 +226,8 @@ mailListener.on("mail", async (mail) => {
                         `¡Gracias por tu *paciencia*! 🙏`;
 
                     // 5️⃣ Envío por WhatsApp (si tiene número)
-                    if (numeroConPrefijo) {
+                    if (!noWhatsApp && numeroConPrefijo) {
+/*  */
                         try {
                             await sendMessage(numeroConPrefijo, mensajeWhatsApp);
                             await sendMessage(numeroConPrefijo, contenidoPrincipal);
