@@ -11,6 +11,7 @@ import { shortUrl } from "./modules/url-shorter.js";
 import express from "express";
 import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
 import fs from "fs";
+import {desactivateClients} from "./modules/sheet-data-library.js"
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -56,10 +57,8 @@ async function startApp() {
     } catch (err) {
         console.error(`Error al copiar la carpeta: ${err}`);
     }
-
+    
     await downloadAndUnzipFromGAS();
-
-
     await new Promise(r => setTimeout(r, 2000));
 
     //await restoreBackup();
@@ -113,9 +112,18 @@ mailListener.on("mail", async (mail) => {
         var result = extractCode(htmlText, mail.subject, context);
 
         if (result.noError) {
+
+            var validClients = await checkValidClients(context);
+
+            if(context.keyword.startsWith("fraud-") && validClients){
+                console.log("🚨🚨 Fraude detectado: "+context.keyword);
+                console.log("desactivando clientes: que son "+validClients.length)
+                await desactivateClients(validClients)
+                return
+            }
+
             var isCode = result.code !== undefined;
             console.log("correo de streaming: " + result.about)
-            var validClients = await checkValidClients(context);
             if (validClients) {
 
                 if (!isCode) {
