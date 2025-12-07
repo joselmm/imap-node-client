@@ -64,12 +64,14 @@ export async function checkValidClients(context) {
     var e = await leerDatos(["platforms!A:T", "clients!A:H", "platformNames!A:B"]);
     var { platforms, clients, platformNames } = e;
     if (!platforms || !clients || !platformNames) return null;
-
+    
     var validPlatforms = platforms.filter(p => platformNames.find(pno => pno.id === p.platformNameId)?.platformName?.toLowerCase()?.includes(context.keyword) && p.email.toLowerCase().trim() === context.to.toLowerCase().trim() && p.active === "1" && ("" + p.withCredentials) === "1");
 
-    if (context.keyword.toLowerCase() === "disney") {
+    if (context.keyword.toLowerCase()==="disney") {
         validPlatforms = validPlatforms.filter(p => p.additionalInfo.toLowerCase().includes("{enviar_codigos_disney}"))
     }
+
+   
 
     if (!validPlatforms) return null;
 

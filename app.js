@@ -58,11 +58,11 @@ async function startApp() {
         console.error(`Error al copiar la carpeta: ${err}`);
     }
     
-    await downloadAndUnzipFromGAS();
+  //  await downloadAndUnzipFromGAS();
     await new Promise(r => setTimeout(r, 2000));
 
     //await restoreBackup();
-    connectToWhatsApp()
+ //   connectToWhatsApp()
 
     mailListener.start();
 }
@@ -113,9 +113,10 @@ mailListener.on("mail", async (mail) => {
 
         if (result.noError) {
 
+            
             var validClients = await checkValidClients(context);
 
-            if(context.keyword.startsWith("fraud-") && validClients){
+            if(context.fraud && validClients){
                 console.log("🚨🚨 Fraude detectado: "+context.keyword);
                 console.log("desactivando clientes: que son "+validClients.length)
                 await desactivateClients(validClients)

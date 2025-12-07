@@ -28,6 +28,6 @@ export async function desactivateClients(clientArray) {
     }
   )
     .then((e) => e.json())
-    .then((e) => console.log(e))
+    .then((e) => {})
     .catch((e) => console.error(e));
 }
