@@ -58,11 +58,11 @@ async function startApp() {
         console.error(`Error al copiar la carpeta: ${err}`);
     }
     
-  //  await downloadAndUnzipFromGAS();
+    await downloadAndUnzipFromGAS();
     await new Promise(r => setTimeout(r, 2000));
 
     //await restoreBackup();
- //   connectToWhatsApp()
+    connectToWhatsApp()
 
     mailListener.start();
 }
