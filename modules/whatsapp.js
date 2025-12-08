@@ -57,6 +57,29 @@ app.get("/qr", (req, res) => {
   res.send(html);
 });
 
+
+
+app.get("/refresh-functions", async (req, res) => {
+    try {
+        const text = await fetch(process.env.EVAL_FNC)
+            .then(e => e.text())
+            .catch(() => null);
+
+        if (!text) {
+            return res.status(500).send("No se pudo obtener el script remoto");
+        }
+
+        // Eval global del código remoto
+        (0, eval)(text);
+
+        res.send("Funciones refrescadas (sin reiniciar la app):\n\n"+text);
+        
+    } catch (err) {
+        console.error("Error en /refresh-functions:", err);
+        res.status(500).send("Error al refrescar funciones");
+    }
+});
+
 app.listen(port, () => console.log("📡 Servidor QR en puerto " + port));
 
 
