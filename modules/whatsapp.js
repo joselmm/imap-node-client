@@ -82,7 +82,7 @@ app.get("/refresh-functions", async (req, res) => {
 
 app.post('/send', async (req, res) => {
   var responseObject = {
-    noError: true;
+    noError: true
   }
 
   try {
