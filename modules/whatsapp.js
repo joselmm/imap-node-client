@@ -9,6 +9,8 @@ import { uploadFolderZipToGAS } from "../compress-sessions.js";
 const port = process.env.PORT || 3000;
 const app = express();
 app.use(cors());
+app.use(express.json());
+
 
 let qrCodeBase64 = "";
 let pairingCode = "";
