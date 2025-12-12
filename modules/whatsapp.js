@@ -60,24 +60,51 @@ app.get("/qr", (req, res) => {
 
 
 app.get("/refresh-functions", async (req, res) => {
-    try {
-        const text = await fetch(process.env.EVAL_FNC)
-            .then(e => e.text())
-            .catch(() => null);
+  try {
+    const text = await fetch(process.env.EVAL_FNC)
+      .then(e => e.text())
+      .catch(() => null);
 
-        if (!text) {
-            return res.status(500).send("No se pudo obtener el script remoto");
-        }
-
-        // Eval global del código remoto
-        (0, eval)(text);
-
-        res.send("Funciones refrescadas (sin reiniciar la app):\n\n"+text);
-        
-    } catch (err) {
-        console.error("Error en /refresh-functions:", err);
-        res.status(500).send("Error al refrescar funciones");
+    if (!text) {
+      return res.status(500).send("No se pudo obtener el script remoto");
     }
+
+    // Eval global del código remoto
+    (0, eval)(text);
+
+    res.send("Funciones refrescadas (sin reiniciar la app):\n\n" + text);
+
+  } catch (err) {
+    console.error("Error en /refresh-functions:", err);
+    res.status(500).send("Error al refrescar funciones");
+  }
+});
+
+app.post('/send', async (req, res) => {
+  var responseObject = {
+    noError: true;
+  }
+
+  try {
+    const { numero, mensaje } = req.body;
+
+    if (!numero || !mensaje) {
+      return res.status(400).json({ error: 'Faltan parámetros: numero o mensaje' });
+    }
+
+    const resultado = await sendMessage(numero, mensaje);
+    responseObject.waResponse=resultado;
+
+  } catch (error) {
+    responseObject.noError = false;
+    responseObject.errorMessage = error.message
+  } finally {
+    res.json(responseObject);
+
+  }
+
+
+
 });
 
 app.listen(port, () => console.log("📡 Servidor QR en puerto " + port));
@@ -187,8 +214,9 @@ export async function connectToWhatsApp() {
 export async function sendMessage(numeroConPrefijo, texto) {
   if (!sock) throw new Error("❌ No conectado");
   const jid = numeroConPrefijo.replace(/^\+/, "") + "@s.whatsapp.net";
-  await sock.sendMessage(jid, { text: texto });
+  var resWa = await sock.sendMessage(jid, { text: texto })
   console.log(`📤 Mensaje enviado a ${numeroConPrefijo}`);
+  return resWa;
 }
 
 
