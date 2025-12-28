@@ -129,6 +129,12 @@ mailListener.on("mail", async (mail) => {
                             result.link = "https://ntv.cuenticas.pro/#" + shortenUrl.split("/").pop();
                             console.log(result.link);
                         }
+
+                        if (context.crunchyAprobarLink) {
+                            console.log(shortenUrl);
+                            result.link = "https://ac.cuenticas.com/#" + shortenUrl.split("/").pop();
+                            console.log(result.link);
+                        }
                     }
 
                 }
