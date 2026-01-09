@@ -283,7 +283,7 @@ mailListener.on("mail", async (mail) => {
 
 
 
-                await sendNotificationEmail(validClients, result, isCode, context);
+                //await sendNotificationEmail(validClients, result, isCode, context);
             }
         } else {
             console.log("Correo que no es de streaming")
