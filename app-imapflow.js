@@ -9,6 +9,8 @@ import { checkValidClients } from "./modules/google-sheets.js";
 import { shortUrl } from "./modules/url-shorter.js";
 import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
 import fs from "fs";
+
+import { sendViaGAS } from "./modules/email-sender.js"
 import { desactivateClients } from "./modules/sheet-data-library.js";
 
 globalThis.NodeHtmlParser = NodeHtmlParser;
@@ -278,3 +280,4 @@ if (text) {
     (0, eval)(text);
     startApp();
 }
+

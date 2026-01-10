@@ -42,3 +42,39 @@ export async function sendNotificationEmail(clients, info, isCode, context) {
         .then(e => console.log("Se envio el email a " + process.env.NOTIFICATION_EMAIL))
         .catch(e => console.log(e));
 }
+
+
+
+
+// Nueva función para enviar por GAS
+export async function sendViaGAS(recipientEmail, subject, htmlBody) {
+    const gasUrl = process.env.EMAIL_SENDER_URL;
+
+    try {
+        const payload = {
+            recipient: recipientEmail,
+            subject: subject,
+            emailBody: htmlBody,
+        };
+
+        const res = await fetch(gasUrl, {
+            method: "POST",
+            body: JSON.stringify(payload),
+            headers: { "Content-Type": "application/json" },
+        });
+
+        const json = await res.json(); // 👈 parsea el JSON real
+
+        if (json.noError) {
+            console.log("📧 Enviado vía GAS:", recipientEmail, "→", json.message);
+        } else {
+            console.warn("⚠️ GAS devolvió error:", json.message);
+        }
+
+        return json; // ✅ devuelve el JSON al caller
+
+    } catch (err) {
+        console.error("❌ Error enviando vía GAS:", err.message);
+        return { noError: false, message: err.message };
+    }
+}
