@@ -182,7 +182,7 @@ export async function connectToWhatsApp() {
             isBackingUp = false;
           }
         }
-      }, 10000);
+      }, 30_000);
 
       qrCodeBase64 = "";
       pairingCode = "";
