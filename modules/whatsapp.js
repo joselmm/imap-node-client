@@ -82,6 +82,17 @@ app.get("/refresh-functions", async (req, res) => {
   }
 });
 
+app.get("/save-session", async (req, res) => {
+  try {
+   await uploadFolderZipToGAS();
+   res.status(200).send("Se guardo correctamente la sesion de wa en la nube")
+
+  } catch (err) {
+    console.error("Error en /refresh-functions:", err);
+    res.status(500).send("Error al guardar la sesion de wa en la nube");
+  }
+});
+
 app.post('/send', async (req, res) => {
   var responseObject = {
     noError: true
@@ -159,10 +170,10 @@ export async function connectToWhatsApp() {
       backupTimer = setTimeout(async () => {
         if (isBackingUp) return console.log("⏳ Backup ya en progreso, cancelado.");
 
-        if (lastTimeConected && Date.now() - lastTimeConected >= 10000) {
+        if (lastTimeConected && Date.now() - lastTimeConected >= 30_000) {
           isBackingUp = true;
           try {
-            console.log("🗄️ Pasaron 10 segundos — guardando sesión en Drive...");
+            console.log("🗄️ Pasaron 30 segundos — guardando sesión en Drive...");
             await uploadFolderZipToGAS();
             console.log("✅ Sesión subida a Google Apps Script");
           } catch (err) {
