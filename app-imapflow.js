@@ -40,7 +40,7 @@ async function startApp() {
         console.log("✅ IMAP Conectado y escuchando INBOX...");
 
         // Escuchar nuevos correos (IDLE activo)
-        client.on('exists', async (data) => {
+        /* client.on('exists', async (data) => {
             // data.count es el número total, buscamos el último
             const fetchOptions = {
                 source: true,
@@ -53,6 +53,25 @@ async function startApp() {
 
             // Ejecutamos tu lógica de procesamiento
             await procesarCorreo(parsed);
+        }); */
+        client.on('exists', async (data) => {
+            let source;
+            let lock = await client.getMailboxLock('INBOX');
+
+            try {
+                // OPERACIÓN ULTRA RÁPIDA: Solo descargar el contenido crudo
+                const message = await client.fetchOne(client.mailbox.exists, { source: true });
+                source = message.source;
+            } finally {
+                // LIBERAR AL INSTANTE: IMAP ya queda libre para el siguiente correo
+                lock.release();
+            }
+
+            // PROCESAMIENTO ASÍNCRONO: Ocurre fuera del lock
+            // No usamos 'await' aquí para que el evento 'exists' termine de inmediato
+            simpleParser(source).then(parsed => {
+                procesarCorreo(parsed);
+            }).catch(err => console.error("Error parseando: ", err));
         });
 
     } finally {
