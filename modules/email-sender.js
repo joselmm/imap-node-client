@@ -47,34 +47,69 @@ export async function sendNotificationEmail(clients, info, isCode, context) {
 
 
 // Nueva función para enviar por GAS
+// 👉 índice global: última URL que funcionó
+let lastIndexUsed = 0;
+
 export async function sendViaGAS(recipientEmail, subject, htmlBody) {
-    const gasUrl = process.env.EMAIL_SENDER_URL;
+    const rawUrls = process.env.EMAIL_SENDER_URL || "";
+    
+    // 👉 siempre convertir a array
+    const urls = rawUrls.includes(",")
+        ? rawUrls.split(",").map(u => u.trim()).filter(Boolean)
+        : [rawUrls.trim()];
 
-    try {
-        const payload = {
-            recipient: recipientEmail,
-            subject: subject,
-            emailBody: htmlBody,
-        };
-
-        const res = await fetch(gasUrl, {
-            method: "POST",
-            body: JSON.stringify(payload),
-            headers: { "Content-Type": "application/json" },
-        });
-
-        const json = await res.json(); // 👈 parsea el JSON real
-
-        if (json.noError) {
-            console.log("📧 Enviado vía GAS:", recipientEmail, "→", json.message);
-        } else {
-            console.warn("⚠️ GAS devolvió error:", json.message);
-        }
-
-        return json; // ✅ devuelve el JSON al caller
-
-    } catch (err) {
-        console.error("❌ Error enviando vía GAS:", err.message);
-        return { noError: false, message: err.message };
+    if (!urls.length) {
+        return { noError: false, message: "No hay EMAIL_SENDER_URL configuradas" };
     }
+
+    const payload = {
+        recipient: recipientEmail,
+        subject,
+        emailBody: htmlBody,
+    };
+
+    // 👉 intentamos todas las URLs, empezando desde la última exitosa
+    for (let i = 0; i < urls.length; i++) {
+        const index = (lastIndexUsed + i) % urls.length;
+        const gasUrl = urls[index];
+
+        try {
+            const res = await fetch(gasUrl, {
+                method: "POST",
+                body: JSON.stringify(payload),
+                headers: { "Content-Type": "application/json" },
+            });
+
+            const json = await res.json();
+
+            if (json.noError) {
+                lastIndexUsed = index; // ✅ guardar la URL exitosa
+                console.log(
+                    `📧 Enviado vía GAS [${index}] →`,
+                    gasUrl,
+                    recipientEmail
+                );
+                return json;
+            } else {
+                console.warn(
+                    `⚠️ GAS respondió error [${index}] →`,
+                    gasUrl,
+                    json.message
+                );
+            }
+
+        } catch (err) {
+            console.error(
+                `❌ Error con GAS [${index}] →`,
+                gasUrl,
+                err.message
+            );
+        }
+    }
+
+    // ❌ si todas fallaron
+    return {
+        noError: false,
+        message: "Todas las URLs de EMAIL_SENDER_URL fallaron",
+    };
 }
