@@ -350,33 +350,71 @@ function cleanupProcessedMessages() {
         }
     }
 }
-
-// arriba del todo (globales)
+// opcionales globales (si no existen ya)
 let failoverErrorCount = 0;
-let failoverDisabledUntil = 0; // ms timestamp
+let failoverDisabledUntil = 0; // timestamp ms
+
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
 async function failoverCheck() {
+    // pausa si hemos decidido desactivar temporalmente el failover
+    if (Date.now() < failoverDisabledUntil) return;
+
     let lock;
     try {
         lock = await client.getMailboxLock('INBOX');
 
-        // 1️⃣ Buscar mensajes recientes (IMAP since = por día, luego filtramos por segundos)
+        // 1) conseguir UIDs por since (IMAP SINCE = por día)
         const sinceDate = new Date(Date.now() - DEDUPE_TTL_MS);
-        let uids = await client.search({ since: sinceDate }, { uid: true });
+        let uids = [];
+        try {
+            uids = await client.search({ since: sinceDate }, { uid: true });
+        } catch (e) {
+            console.error("❌ failover: search error:", e && (e.stack || e.message || e));
+            // intentar search sin since como fallback
+            try {
+                uids = await client.search({}, { uid: true });
+            } catch (e2) {
+                console.error("❌ failover: fallback search error:", e2 && (e2.stack || e2.message || e2));
+                throw e2;
+            }
+        }
 
-        if (!uids || !uids.length) return;
+        if (!uids || uids.length === 0) {
+            failoverErrorCount = 0;
+            return;
+        }
 
-        // 2️⃣ Tomar SOLO los últimos 20
+        // 2) ordenar y limitar a los últimos 20 (UID más alto = más reciente)
         uids.sort((a, b) => b - a);
         uids = uids.slice(0, 20);
 
         const toProcess = [];
 
+        // 3) fetch uno a uno (con protección y pequeño delay)
         for (const uid of uids) {
             let msg;
             try {
                 msg = await client.fetchOne(uid, { source: true, uid: true });
             } catch (e) {
-                console.error("❌ fetchOne failover falló uid", uid, e.message);
+                console.error("❌ fetchOne failover falló uid", uid, e && (e.stack || e.message || e));
+                // si hay muchos fallos, aumentar contador y salir pronto
+                failoverErrorCount++;
+                if (failoverErrorCount >= 6) {
+                    failoverDisabledUntil = Date.now() + 2 * 60 * 1000; // pausar 2 min
+                    console.error("⚠️ Failover pausado 2m por múltiples fetchOne fallidos");
+                    return;
+                }
+                // esperar un poco antes del siguiente fetch para evitar throttling
+                await sleep(120);
+                continue;
+            }
+
+            // si no tenemos source, saltamos (algunos msg pueden llegar solo con metadata)
+            if (!msg || !msg.source) {
+                console.log("⏩ Failover skip (no source): UID", uid);
+                // small delay to avoid tight loop of failures
+                await sleep(60);
                 continue;
             }
 
@@ -384,52 +422,82 @@ async function failoverCheck() {
             try {
                 parsed = await simpleParser(msg.source);
             } catch (e) {
-                console.error("❌ parse failover:", e.message);
+                console.error("❌ parse failover:", e && (e.stack || e.message || e));
+                await sleep(40);
                 continue;
             }
 
             const received = new Date(parsed.date).getTime();
-            if (!received || isNaN(received)) continue;
+            if (!received || isNaN(received)) {
+                console.log("⏩ Failover ignorado (sin fecha):", parsed.subject || ("uid:"+uid));
+                continue;
+            }
 
             const ageSec = (Date.now() - received) / 1000;
-            if (ageSec > 180) continue; // ⛔ más viejo de 3 min
+            // filtro real por segundos (ej. 180s)
+            if (ageSec > 180) {
+                console.log(`⏩ Failover ignorado por viejo (${Math.round(ageSec)}s):`, parsed.subject);
+                continue;
+            }
 
             const key = parsed.messageId || `${uid}-${received}`;
-            if (processedMessages.has(key)) continue;
+            if (processedMessages.has(key)) {
+                console.log("⏭️ Failover ignorado (dedupe):", parsed.subject);
+                continue;
+            }
 
             toProcess.push({ uid, parsed, key, ageSec });
+            // pequeño respeto al servidor
+            await sleep(30);
         }
 
-        if (!toProcess.length) return;
-
-        // 3️⃣ Marcar SEEN antes de procesar
-        try {
-            await client.messageFlagsAdd(
-                toProcess.map(m => m.uid),
-                ['\\Seen'],
-                { uid: true }
-            );
-        } catch (e) {
-            console.error("❌ Error marcando Seen failover:", e.message);
+        if (!toProcess.length) {
+            // éxito sin procesar nada
+            failoverErrorCount = 0;
+            return;
         }
 
-        // 4️⃣ Procesar
+        // 4) Marcar como SEEN en lote antes de procesar (uid: true)
+        const uidsToMark = toProcess.map(p => p.uid).filter(Boolean);
+        if (uidsToMark.length) {
+            try {
+                await client.messageFlagsAdd(uidsToMark, ['\\Seen'], { uid: true });
+            } catch (e) {
+                console.error("❌ Error marcando Seen (batch):", e && (e.stack || e.message || e));
+                // no abortamos, seguimos procesando
+            }
+        }
+
+        // 5) procesar y marcar en Map
         for (const item of toProcess) {
-            processedMessages.set(item.key, Date.now());
+            const { parsed, key, ageSec } = item;
 
-            console.log(
-                "♻️ Correo NUEVO (failover):",
-                item.parsed.subject,
-                "| age:",
-                Math.round(item.ageSec) + "s"
-            );
+            // doble-check dedupe
+            if (processedMessages.has(key)) {
+                console.log("⏭️ Ignorado (dedupe post-mark):", parsed.subject);
+                continue;
+            }
 
-            procesarCorreo(item.parsed)
-                .catch(e => console.error("❌ procesarCorreo failover:", e.message));
+            processedMessages.set(key, Date.now());
+
+            console.log("♻️ Correo NUEVO (failover):", parsed.subject, "| age:", Math.round(ageSec) + "s");
+
+            // no await para no bloquear el loop; capturamos errores
+            procesarCorreo(parsed).catch(err => console.error("❌ procesarCorreo failover:", err && (err.stack || err.message || err)));
         }
+
+        // todo OK -> reset contador de errores
+        failoverErrorCount = 0;
 
     } catch (err) {
-        console.error("❌ Failover error REAL:", err.stack || err.message);
+        console.error("❌ Failover error REAL:", err && (err.stack || err.message || err));
+        // en error grave, pausar un poco para evitar spam en logs
+        failoverErrorCount++;
+        if (failoverErrorCount >= 6) {
+            failoverDisabledUntil = Date.now() + 2 * 60 * 1000;
+            console.error("⚠️ Failover pausado 2m por errores repetidos");
+            failoverErrorCount = 0;
+        }
     } finally {
         if (lock) lock.release();
     }
