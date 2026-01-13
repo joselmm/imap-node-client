@@ -69,6 +69,15 @@ async function startApp() {
                 return;
             }
 
+            const uid = message.uid;
+
+            // 🔐 MARCAR COMO SEEN INMEDIATO
+            try {
+                await client.messageFlagsAdd(uid, ['\\Seen']);
+            } catch (e) {
+                console.error("❌ Error marcando Seen:", e.message);
+            }
+
             let parsed;
             try {
                 parsed = await simpleParser(message.source);
@@ -77,15 +86,20 @@ async function startApp() {
                 return;
             }
 
-            const key = parsed.messageId || `${seq}-${parsed.date?.getTime()}`;
+            const key = parsed.messageId || `${uid}-${parsed.date?.getTime()}`;
 
-
-            if (processedMessages.has(key)) return;
+            if (processedMessages.has(key)) {
+                console.log("⏭️ exists ignorado (ya procesado):", parsed.subject);
+                return;
+            }
 
             processedMessages.set(key, Date.now());
 
+            console.log("📩 Correo NUEVO (exists):", parsed.subject);
+
             procesarCorreo(parsed);
         });
+
 
 
 
@@ -349,6 +363,13 @@ async function failoverCheck() {
         for (const uid of uids) {
             const message = await client.fetchOne(uid, { source: true });
 
+            // 🔐 MARCAR COMO SEEN SIEMPRE
+            try {
+                await client.messageFlagsAdd(uid, ['\\Seen']);
+            } catch (e) {
+                console.error("❌ Error marcando Seen (failover):", e.message);
+            }
+
             let parsed;
             try {
                 parsed = await simpleParser(message.source);
@@ -357,19 +378,42 @@ async function failoverCheck() {
                 continue;
             }
 
-            const key = parsed.messageId || `${uid}-${parsed.date?.getTime()}`;
+            const received = new Date(parsed.date).getTime();
+            if (!received || isNaN(received)) {
+                console.log("⏩ Failover ignorado (sin fecha):", parsed.subject);
+                continue;
+            }
 
-            if (processedMessages.has(key)) continue;
+            const ageSec = (Date.now() - received) / 1000;
+
+            // ⛔ FILTRO REAL POR SEGUNDOS
+            if (ageSec > 180) {
+                console.log(
+                    `⏩ Failover ignorado por viejo (${Math.round(ageSec)}s):`,
+                    parsed.subject
+                );
+                continue;
+            }
+
+            const key = parsed.messageId || `${uid}-${received}`;
+
+            if (processedMessages.has(key)) {
+                console.log("⏭️ Failover ignorado (dedupe):", parsed.subject);
+                continue;
+            }
 
             processedMessages.set(key, Date.now());
+
             console.log(
                 "♻️ Correo NUEVO (failover):",
                 parsed.subject,
-                "| messageId:",
-                parsed.messageId
+                "| age:",
+                Math.round(ageSec) + "s"
             );
+
             procesarCorreo(parsed);
         }
+
 
 
     } catch (err) {
