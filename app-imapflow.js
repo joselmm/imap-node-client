@@ -351,29 +351,95 @@ function cleanupProcessedMessages() {
     }
 }
 
-async function failoverCheck() {
-    let lock;
+// arriba del todo (globales)
+let failoverErrorCount = 0;
+let failoverDisabledUntil = 0; // ms timestamp
 
+async function failoverCheck() {
+    // protección por si hubo muchos errores seguidos
+    if (Date.now() < failoverDisabledUntil) {
+        // opcional: log muy ligero para saber que está en pausa
+        // console.log("Failover en pausa hasta", new Date(failoverDisabledUntil).toISOString());
+        return;
+    }
+
+    let lock;
     try {
         lock = await client.getMailboxLock('INBOX');
 
-        // 1) Traer los últimos 20 mensajes del buzón (fetchAll con rango especial)
-        //    request: envelope, source y uid para poder procesar y marcar
-        const messages = await client.fetchAll('*:-20', {
-            source: true,
-            uid: true
-        });
+        // 1) Intentos seguros de fetchAll con rango (últimos 20)
+        // probamos un par de variantes que algunos servidores aceptan
+        let messages = null;
+        const tryRanges = [':-20', '*:-20']; // '-:20' variante y '*:-20'
+        for (const range of tryRanges) {
+            try {
+                messages = await client.fetchAll(range, {
+                    source: true,
+                    uid: true
+                    // envelope: true // opcional si quieres metadatos
+                });
 
-        if (!messages || messages.length === 0) return;
+                if (messages && messages.length) break;
+            } catch (errRange) {
+                // loguea el fallo de intento específico (no termina todo aún)
+                console.error(`❗ fetchAll rango "${range}" falló:`, errRange && (errRange.stack || errRange.message || errRange));
+                // seguir al siguiente intento
+            }
+        }
 
-        // 2) Parsear y filtrar por edad (filtro real por segundos)
-        const toProcess = [];      // { uid, parsed, received, key }
+        // 2) Si no obtuvimos mensajes con fetchAll, fallback seguro: search + slice(0,20)
+        if (!messages || messages.length === 0) {
+            try {
+                // sigue usando sinceDate si quieres, pero como IMAP SINCE es por día,
+                // lo usamos solo para acotar; luego ordenamos por UID y tomamos 20
+                const sinceDate = new Date(Date.now() - DEDUPE_TTL_MS);
+                let uids = await client.search({ since: sinceDate }, { uid: true });
+                if (!uids || !uids.length) {
+                    // si no hay uids por since, intentamos traer todos y limitar por UID
+                    uids = await client.search({}, { uid: true });
+                }
+
+                if (!uids || !uids.length) {
+                    // nada que procesar
+                    failoverErrorCount = 0;
+                    return;
+                }
+
+                // ordenar descendente por UID y tomar los 20 más recientes
+                uids.sort((a, b) => b - a);
+                const take = uids.slice(0, 20);
+
+                // fetch individualmente los que necesitamos (fetchOne es seguro)
+                messages = [];
+                for (const uid of take) {
+                    try {
+                        const msg = await client.fetchOne(uid, { source: true, uid: true });
+                        if (msg) messages.push(msg);
+                    } catch (errFetchOne) {
+                        console.error("❌ fetchOne en fallback falló para uid", uid, errFetchOne && (errFetchOne.stack || errFetchOne.message || errFetchOne));
+                    }
+                }
+            } catch (errSearch) {
+                throw errSearch; // sube para el catch general
+            }
+        }
+
+        if (!messages || messages.length === 0) {
+            failoverErrorCount = 0;
+            return;
+        }
+
+        // 3) Parsear y seleccionar los que realmente queremos procesar
+        const toProcess = []; // { uid, parsed, received, key, ageSec }
         for (const msg of messages) {
+            // msg.uid debería existir si pediste uid: true
+            const uid = msg.uid ?? msg.uid; // por claridad
+
             let parsed;
             try {
                 parsed = await simpleParser(msg.source);
-            } catch (err) {
-                console.error("❌ Failover parse error (skip):", err.message);
+            } catch (errParse) {
+                console.error("❌ Failover parse error (skip):", errParse && (errParse.stack || errParse.message || errParse));
                 continue;
             }
 
@@ -385,44 +451,41 @@ async function failoverCheck() {
 
             const ageSec = (Date.now() - received) / 1000;
 
-            // FILTRO: solo procesar si no es muy viejo
+            // filtro real por segundos (p. ej. 180s)
             if (ageSec > 180) {
-                console.log(
-                    `⏩ Failover ignorado por viejo (${Math.round(ageSec)}s):`,
-                    parsed.subject
-                );
+                console.log(`⏩ Failover ignorado por viejo (${Math.round(ageSec)}s):`, parsed.subject);
                 continue;
             }
 
-            const uid = msg.uid; // fetchAll con uid: true
             const key = parsed.messageId || `${uid}-${received}`;
-
-            // dedupe en memoria: si ya marcado, ignorar
             if (processedMessages.has(key)) {
                 console.log("⏭️ Failover ignorado (dedupe):", parsed.subject);
                 continue;
             }
 
-            // listo para procesar
             toProcess.push({ uid, parsed, received, key, ageSec });
         }
 
-        if (!toProcess.length) return;
-
-        // 3) MARCAR COMO SEEN en lote ANTES de procesar (evita reaparición)
-        const uidsToMark = toProcess.map(p => p.uid);
-        try {
-            await client.messageFlagsAdd(uidsToMark, ['\\Seen'], { uid: true });
-        } catch (e) {
-            console.error("❌ Error marcando Seen (batch):", e.message);
-            // no abortamos; intentamos procesar lo que podamos
+        if (!toProcess.length) {
+            failoverErrorCount = 0;
+            return;
         }
 
-        // 4) Ahora procesar cada mensaje (marcar en Map + llamar a procesarCorreo)
-        for (const item of toProcess) {
-            const { uid, parsed, received, key, ageSec } = item;
+        // 4) Marcar como SEEN en lote (si falla, lo tratamos y seguimos)
+        const uidsToMark = toProcess.map(p => p.uid).filter(Boolean);
+        if (uidsToMark.length) {
+            try {
+                await client.messageFlagsAdd(uidsToMark, ['\\Seen'], { uid: true });
+            } catch (errMark) {
+                console.error("❌ Error marcando Seen (batch):", errMark && (errMark.stack || errMark.message || errMark));
+                // no abortamos; continuamos para procesar lo que tengamos
+            }
+        }
 
-            // doble check dedupe (por si algo raro)
+        // 5) Procesar y marcar en map (dedupe)
+        for (const item of toProcess) {
+            const { uid, parsed, key, ageSec } = item;
+
             if (processedMessages.has(key)) {
                 console.log("⏭️ Ignorado (dedupe post-mark):", parsed.subject);
                 continue;
@@ -430,22 +493,34 @@ async function failoverCheck() {
 
             processedMessages.set(key, Date.now());
 
-            console.log(
-                "♻️ Correo NUEVO (failover):",
-                parsed.subject,
-                "| age:",
-                Math.round(ageSec) + "s",
-                "| messageId:",
-                parsed.messageId
-            );
+            console.log("♻️ Correo NUEVO (failover):", parsed.subject, "| age:", Math.round(ageSec) + "s", "| messageId:", parsed.messageId);
 
-            // procesar (tu función existente)
-            procesarCorreo(parsed).catch(err => console.error("❌ procesarCorreo (failover) error:", err));
+            // procesarCorreo puede retornar promesa; capturamos errores
+            procesarCorreo(parsed).catch(err => console.error("❌ procesarCorreo (failover) error:", err && (err.stack || err.message || err)));
         }
 
+        // todo bien -> reset contador de errores
+        failoverErrorCount = 0;
     } catch (err) {
-        console.error("❌ Failover error:", err.message);
+        // LOG MUY DETALLADO para entender el "Command failed"
+        console.error("❌ Failover error (DETALLADO):", {
+            msg: err && (err.message || err.toString()),
+            stack: err && err.stack,
+            // algunos errores IMAP llevan propiedades adicionales:
+            response: err?.response,
+            command: err?.command,
+            server: err?.server
+        });
+
+        // mecanismo de pausa si hay repetidos fallos
+        failoverErrorCount++;
+        if (failoverErrorCount >= 5) {
+            failoverDisabledUntil = Date.now() + 2 * 60 * 1000; // pausar 2 minutos
+            console.error("⚠️ Failover deshabilitado temporalmente por múltiples errores. Reintentará en 2 min.");
+            failoverErrorCount = 0; // reset para próxima vez
+        }
     } finally {
         if (lock) lock.release();
     }
 }
+
