@@ -317,7 +317,7 @@ function cleanupProcessedMessages() {
 
 async function failoverCheck() {
     let lock;
-    console.log("Failover ejecutado")
+    //console.log("Failover ejecutado")
 
     try {
         lock = await client.getMailboxLock('INBOX');
