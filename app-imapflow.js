@@ -9,8 +9,9 @@ import { checkValidClients } from "./modules/google-sheets.js";
 import { shortUrl } from "./modules/url-shorter.js";
 import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
 import fs from "fs";
-const DEDUPE_TTL_MS = 90 * 1000; // 1:3
-const CLEANUP_TTL_MS = 5 * 60 * 1000; // 5 minutos
+let appStarted = false;
+const DEDUPE_TTL_MS = 90 * 1000; // 1m30
+const CLEANUP_TTL_MS = 5 * 60 * 1000; // 5 minutos (window de limpieza mayor para evitar reprocesos)
 
 import { sendViaGAS } from "./modules/email-sender.js"
 import { desactivateClients } from "./modules/sheet-data-library.js";
@@ -26,6 +27,9 @@ const processedMessages = new Map();
 globalThis.NodeHtmlParser = NodeHtmlParser;
 
 async function startApp() {
+    // PARA EVITAR DOBLE EJECUCIONE EN EL MISMO ENTORNO
+    if (appStarted) return;
+    appStarted = true;
 
     const target = './auth_info';
     try {
@@ -73,10 +77,11 @@ async function startApp() {
 
             // 🔐 MARCAR COMO SEEN INMEDIATO
             try {
-                await client.messageFlagsAdd(uid, ['\\Seen']);
+                await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
             } catch (e) {
                 console.error("❌ Error marcando Seen:", e.message);
             }
+
 
             let parsed;
             try {
@@ -97,7 +102,8 @@ async function startApp() {
 
             console.log("📩 Correo NUEVO (exists):", parsed.subject);
 
-            procesarCorreo(parsed);
+            procesarCorreo(parsed).catch(err => console.error("❌ procesarCorreo (exists) error:", err));
+
         });
 
 
@@ -347,34 +353,27 @@ function cleanupProcessedMessages() {
 
 async function failoverCheck() {
     let lock;
-    //console.log("Failover ejecutado")
 
     try {
         lock = await client.getMailboxLock('INBOX');
 
-        const sinceDate = new Date(Date.now() - DEDUPE_TTL_MS);
-
-        const uids = await client.search({
-            since: sinceDate
+        // 1) Traer los últimos 20 mensajes del buzón (fetchAll con rango especial)
+        //    request: envelope, source y uid para poder procesar y marcar
+        const messages = await client.fetchAll('*:-20', {
+            source: true,
+            uid: true
         });
 
-        if (!uids.length) return;
+        if (!messages || messages.length === 0) return;
 
-        for (const uid of uids) {
-            const message = await client.fetchOne(uid, { source: true });
-
-            // 🔐 MARCAR COMO SEEN SIEMPRE
-            try {
-                await client.messageFlagsAdd(uid, ['\\Seen']);
-            } catch (e) {
-                console.error("❌ Error marcando Seen (failover):", e.message);
-            }
-
+        // 2) Parsear y filtrar por edad (filtro real por segundos)
+        const toProcess = [];      // { uid, parsed, received, key }
+        for (const msg of messages) {
             let parsed;
             try {
-                parsed = await simpleParser(message.source);
+                parsed = await simpleParser(msg.source);
             } catch (err) {
-                console.error("❌ Failover parse error:", err.message);
+                console.error("❌ Failover parse error (skip):", err.message);
                 continue;
             }
 
@@ -386,7 +385,7 @@ async function failoverCheck() {
 
             const ageSec = (Date.now() - received) / 1000;
 
-            // ⛔ FILTRO REAL POR SEGUNDOS
+            // FILTRO: solo procesar si no es muy viejo
             if (ageSec > 180) {
                 console.log(
                     `⏩ Failover ignorado por viejo (${Math.round(ageSec)}s):`,
@@ -395,10 +394,37 @@ async function failoverCheck() {
                 continue;
             }
 
+            const uid = msg.uid; // fetchAll con uid: true
             const key = parsed.messageId || `${uid}-${received}`;
 
+            // dedupe en memoria: si ya marcado, ignorar
             if (processedMessages.has(key)) {
                 console.log("⏭️ Failover ignorado (dedupe):", parsed.subject);
+                continue;
+            }
+
+            // listo para procesar
+            toProcess.push({ uid, parsed, received, key, ageSec });
+        }
+
+        if (!toProcess.length) return;
+
+        // 3) MARCAR COMO SEEN en lote ANTES de procesar (evita reaparición)
+        const uidsToMark = toProcess.map(p => p.uid);
+        try {
+            await client.messageFlagsAdd(uidsToMark, ['\\Seen'], { uid: true });
+        } catch (e) {
+            console.error("❌ Error marcando Seen (batch):", e.message);
+            // no abortamos; intentamos procesar lo que podamos
+        }
+
+        // 4) Ahora procesar cada mensaje (marcar en Map + llamar a procesarCorreo)
+        for (const item of toProcess) {
+            const { uid, parsed, received, key, ageSec } = item;
+
+            // doble check dedupe (por si algo raro)
+            if (processedMessages.has(key)) {
+                console.log("⏭️ Ignorado (dedupe post-mark):", parsed.subject);
                 continue;
             }
 
@@ -408,13 +434,14 @@ async function failoverCheck() {
                 "♻️ Correo NUEVO (failover):",
                 parsed.subject,
                 "| age:",
-                Math.round(ageSec) + "s"
+                Math.round(ageSec) + "s",
+                "| messageId:",
+                parsed.messageId
             );
 
-            procesarCorreo(parsed);
+            // procesar (tu función existente)
+            procesarCorreo(parsed).catch(err => console.error("❌ procesarCorreo (failover) error:", err));
         }
-
-
 
     } catch (err) {
         console.error("❌ Failover error:", err.message);
