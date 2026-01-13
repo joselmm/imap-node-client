@@ -9,6 +9,7 @@ import { checkValidClients } from "./modules/google-sheets.js";
 import { shortUrl } from "./modules/url-shorter.js";
 import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
 import fs from "fs";
+const DEDUPE_TTL_MS = 90 * 1000; // 1:3
 
 
 import { sendViaGAS } from "./modules/email-sender.js"
@@ -105,7 +106,7 @@ async function procesarCorreo(mail) {
     const recibido = new Date(mail.date);
     const diferenciaSeg = (ahora - recibido) / 1000;
 
-    if (diferenciaSeg <= 120) { // Un poco más de margen para ImapFlow
+   
         console.log(`✅ Correo reciente (${Math.round(diferenciaSeg)}s):`, mail.subject);
 
         const context = {
@@ -292,7 +293,7 @@ async function procesarCorreo(mail) {
         } else {
             console.log("⏩ Ignorado (muy viejo):", mail.subject);
         }
-    }
+    
 
 
 }
@@ -307,10 +308,10 @@ if (text) {
 
 function cleanupProcessedMessages() {
     const now = Date.now();
-    const TTL = 45 * 1000;
+    
 
     for (const [uid, ts] of processedMessages.entries()) {
-        if (now - ts > TTL) {
+        if (now - ts > DEDUPE_TTL_MS) {
             processedMessages.delete(uid);
         }
     }
@@ -318,11 +319,12 @@ function cleanupProcessedMessages() {
 
 async function failoverCheck() {
     let lock;
+    console.log("Failover ejecutado")
 
     try {
         lock = await client.getMailboxLock('INBOX');
 
-        const sinceDate = new Date(Date.now() - 45 * 1000);
+        const sinceDate = new Date(Date.now() - DEDUPE_TTL_MS);
 
         const uids = await client.search({
             since: sinceDate
@@ -346,7 +348,12 @@ async function failoverCheck() {
             if (processedMessages.has(key)) continue;
 
             processedMessages.set(key, Date.now());
-
+            console.log(
+                "♻️ Correo NUEVO (failover):",
+                parsed.subject,
+                "| messageId:",
+                parsed.messageId
+            );
             procesarCorreo(parsed);
         }
 
