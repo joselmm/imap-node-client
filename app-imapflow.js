@@ -55,28 +55,27 @@ setInterval(cleanupProcessedMessages, 30_000);
         console.log("✅ IMAP Conectado y escuchando INBOX...");
 
 
-        client.on('exists', async () => {
-            let lock;
+      client.on('exists', async () => {
+    let source;
+    const uid = client.mailbox.exists;
 
-            try {
-                lock = await client.getMailboxLock('INBOX');
+    if (processedMessages.has(uid)) return;
 
-                const uid = client.mailbox.exists;
+    try {
+        const message = await client.fetchOne(uid, { source: true });
+        source = message.source;
+    } catch (err) {
+        console.error("❌ Fetch error:", err.message);
+        return;
+    }
 
-                if (processedMessages.has(uid)) return;
+    processedMessages.set(uid, Date.now());
 
-                const message = await client.fetchOne(uid, { source: true });
+    simpleParser(source)
+        .then(parsed => procesarCorreo(parsed))
+        .catch(err => console.error("❌ Parse error:", err));
+});
 
-                processedMessages.set(uid, Date.now());
-
-                simpleParser(message.source)
-                    .then(parsed => procesarCorreo(parsed))
-                    .catch(err => console.error("❌ Parse error:", err));
-
-            } finally {
-                if (lock) lock.release();
-            }
-        });
 
 
     } finally {
