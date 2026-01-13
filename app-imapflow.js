@@ -10,7 +10,7 @@ import { shortUrl } from "./modules/url-shorter.js";
 import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
 import fs from "fs";
 const DEDUPE_TTL_MS = 90 * 1000; // 1:3
-
+const CLEANUP_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
 import { sendViaGAS } from "./modules/email-sender.js"
 import { desactivateClients } from "./modules/sheet-data-library.js";
@@ -102,12 +102,28 @@ async function startApp() {
 
 // Tu lógica principal encapsulada
 async function procesarCorreo(mail) {
-    const ahora = new Date();
-    const recibido = new Date(mail.date);
+    const ahora = Date.now();
+    const recibido = new Date(mail.date).getTime();
+
+    if (!recibido || isNaN(recibido)) {
+        console.log("⏩ Ignorado: sin fecha válida", mail.subject);
+        return;
+    }
+
     const diferenciaSeg = (ahora - recibido) / 1000;
 
+    if (diferenciaSeg > 180) {
+        console.log(
+            `⏩ Ignorado por viejo (${Math.round(diferenciaSeg)}s):`,
+            mail.subject
+        );
+        return; // ⛔ CORTA TODO
+    }
 
-    console.log(`✅ Correo reciente (${Math.round(diferenciaSeg)}s):`, mail.subject);
+    console.log(
+        `✅ Correo reciente (${Math.round(diferenciaSeg)}s):`,
+        mail.subject
+    );
 
     const context = {
         to: mail.to?.text || "",
@@ -309,7 +325,7 @@ function cleanupProcessedMessages() {
 
 
     for (const [uid, ts] of processedMessages.entries()) {
-        if (now - ts > DEDUPE_TTL_MS) {
+        if (now - ts > CLEANUP_TTL_MS) {
             processedMessages.delete(uid);
         }
     }
