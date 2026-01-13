@@ -52,13 +52,12 @@ let lastIndexUsed = 0;
 
 export async function sendViaGAS(recipientEmail, subject, htmlBody) {
     const rawUrls = process.env.EMAIL_SENDER_URL || "";
-    
-    // 👉 siempre convertir a array
+
     const urls = rawUrls.includes(",")
         ? rawUrls.split(",").map(u => u.trim()).filter(Boolean)
         : [rawUrls.trim()];
 
-    if (!urls.length) {
+    if (!urls.length || !urls[0]) {
         return { noError: false, message: "No hay EMAIL_SENDER_URL configuradas" };
     }
 
@@ -68,7 +67,6 @@ export async function sendViaGAS(recipientEmail, subject, htmlBody) {
         emailBody: htmlBody,
     };
 
-    // 👉 intentamos todas las URLs, empezando desde la última exitosa
     for (let i = 0; i < urls.length; i++) {
         const index = (lastIndexUsed + i) % urls.length;
         const gasUrl = urls[index];
@@ -83,33 +81,23 @@ export async function sendViaGAS(recipientEmail, subject, htmlBody) {
             const json = await res.json();
 
             if (json.noError) {
-                lastIndexUsed = index; // ✅ guardar la URL exitosa
-                console.log(
-                    `📧 Enviado vía GAS [${index}] →`,
-                    gasUrl,
-                    recipientEmail
-                );
+                // 👉 avanzar al siguiente
+                lastIndexUsed = (index + 1) % urls.length;
+
+                console.log(`📧 Enviado vía GAS [${index}] →`, gasUrl);
                 return json;
-            } else {
-                console.warn(
-                    `⚠️ GAS respondió error [${index}] →`,
-                    gasUrl,
-                    json.message
-                );
             }
 
+            console.warn(`⚠️ GAS respondió error [${index}] →`, json.message);
+
         } catch (err) {
-            console.error(
-                `❌ Error con GAS [${index}] →`,
-                gasUrl,
-                err.message
-            );
+            console.error(`❌ Error con GAS [${index}] →`, err.message);
         }
     }
 
-    // ❌ si todas fallaron
     return {
         noError: false,
         message: "Todas las URLs de EMAIL_SENDER_URL fallaron",
     };
 }
+
