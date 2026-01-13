@@ -91,7 +91,8 @@ async function startApp() {
                 return;
             }
 
-            const key = parsed.messageId || `${uid}-${parsed.date?.getTime()}`;
+            const rawMid = parsed.messageId || `${uid}-${parsed.date?.getTime()}`;
+            const key = normalizeMessageId(rawMid) || rawMid;
 
             if (processedMessages.has(key)) {
                 console.log("⏭️ exists ignorado (ya procesado):", parsed.subject);
@@ -350,77 +351,109 @@ function cleanupProcessedMessages() {
         }
     }
 }
-
 async function failoverCheck() {
     let lock;
 
     try {
         lock = await client.getMailboxLock('INBOX');
 
-        // 1️⃣ Buscar por día (IMAP no baja a segundos)
         const sinceDate = new Date(Date.now() - DEDUPE_TTL_MS);
         let uids = await client.search({ since: sinceDate });
 
-        if (!uids || !uids.length) return;
+        if (!uids?.length) return;
 
-        // 2️⃣ Solo los últimos 20 (más recientes)
+        // últimos 20
         uids.sort((a, b) => b - a);
         uids = uids.slice(0, 20);
 
         for (const uid of uids) {
 
-            // 3️⃣ PEDIR SOLO ENVELOPE (barato)
+            // 1️⃣ ENVELOPE primero (sin BODY)
             const meta = await client.fetchOne(uid, {
                 envelope: true,
                 uid: true
             });
 
-            if (!meta?.envelope?.date) continue;
+            if (!meta?.envelope) continue;
 
-            const ageSec = (Date.now() - new Date(meta.envelope.date)) / 1000;
+            const received = meta.envelope.date
+                ? new Date(meta.envelope.date).getTime()
+                : null;
 
-            // ⛔ si no es reciente → NI INTENTAR BODY
+            const key =
+                meta.envelope.messageId ||
+                `${uid}-${received}`;
+
+            // 2️⃣ DEDUPE ANTES DE TODO
+            if (processedMessages.has(key)) {
+                console.log("⏭️ Failover dedupe:", meta.envelope.subject);
+                continue;
+            }
+
+            if (!received || isNaN(received)) continue;
+
+            const ageSec = (Date.now() - received) / 1000;
+
+            // 3️⃣ FILTRO POR EDAD
             if (ageSec > 180) {
                 console.log(
-                    `⏩ Failover ignorado por viejo (${Math.round(ageSec)}s):`,
+                    `⏩ Failover viejo (${Math.round(ageSec)}s):`,
                     meta.envelope.subject
                 );
                 continue;
             }
 
-            // 4️⃣ Ahora SÍ: traer BODY
-            const msg = await client.fetchOne(uid, {
-                source: true,
-                uid: true
-            });
+            // 4️⃣ AHORA SÍ: BODY
+            // antes de bajar el body, reserva la key para evitar races
+            processedMessages.set(key, Date.now());
 
-            if (!msg?.source) {
-                console.log("⏩ Failover skip (no source):", uid);
+            let msg;
+            try {
+                msg = await client.fetchOne(uid, { source: true, uid: true });
+            } catch (e) {
+                console.error("❌ fetchOne failover uid", uid, e && (e.stack || e.message || e));
+                // liberar reserva para que otro intento posterior pueda procesarlo
+                processedMessages.delete(key);
                 continue;
             }
 
-            // 🔐 Marcar SEEN apenas lo vamos a procesar
+            if (!msg?.source) {
+                console.log("⏩ Failover sin source:", uid);
+                // liberar reserva
+                processedMessages.delete(key);
+                continue;
+            }
+
+            // marcar seen (opcionalmente)
             try {
                 await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
-            } catch {}
+            } catch (e) { /* ignore */ }
 
+            // parse
             let parsed;
             try {
                 parsed = await simpleParser(msg.source);
             } catch (e) {
-                console.error("❌ parse failover:", e.message);
+                console.error("❌ parse failover:", e && (e.stack || e.message || e));
+                // liberar reserva
+                processedMessages.delete(key);
                 continue;
             }
 
-            const received = new Date(parsed.date).getTime();
-            const key = parsed.messageId || `${uid}-${received}`;
+            // recalcular key final (normalizado)
+            const finalKey = normalizeMessageId(parsed.messageId) || key;
 
-            if (processedMessages.has(key)) {
-                console.log("⏭️ Failover ignorado (dedupe):", parsed.subject);
-                continue;
+            // si finalKey difiere, liberar la reserva anterior y chequear duplicado final
+            if (finalKey !== key) {
+                processedMessages.delete(key);
+                if (processedMessages.has(finalKey)) {
+                    console.log("⏭️ Failover ignorado (dedupe final):", parsed.subject);
+                    continue;
+                }
             }
 
-            processedMessages.set(key, Date.now());
+            // confirmar con finalKey
+            processedMessages.set(finalKey, Date.now());
 
             console.log(
                 "♻️ Correo NUEVO (failover):",
@@ -433,8 +466,14 @@ async function failoverCheck() {
         }
 
     } catch (err) {
-        console.error("❌ Failover error REAL:", err.message);
+        console.error("❌ Failover error:", err.message);
     } finally {
         if (lock) lock.release();
     }
+}
+
+
+function normalizeMessageId(mid) {
+    if (!mid) return null;
+    return String(mid).trim().replace(/^<|>$/g, "").toLowerCase();
 }
