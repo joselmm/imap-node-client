@@ -106,127 +106,127 @@ async function procesarCorreo(mail) {
     const recibido = new Date(mail.date);
     const diferenciaSeg = (ahora - recibido) / 1000;
 
-   
-        console.log(`✅ Correo reciente (${Math.round(diferenciaSeg)}s):`, mail.subject);
 
-        const context = {
-            to: mail.to?.text || "",
-            from: mail.from?.text || "",
-            profileName: null,
-            keyword: ""
-        };
+    console.log(`✅ Correo reciente (${Math.round(diferenciaSeg)}s):`, mail.subject);
 
-        // NOTA: mailparser (ImapFlow) estructura los objetos diferente a mail-listener5
-        // mail.to.value[0].address es ahora mail.to.value[0].address
-        if (mail.to?.value) context.to = mail.to.value[0].address;
-        if (mail.from?.value) context.from = mail.from.value[0].address;
+    const context = {
+        to: mail.to?.text || "",
+        from: mail.from?.text || "",
+        profileName: null,
+        keyword: ""
+    };
 
-        var result = extractCode(mail.html, mail.subject, context);
+    // NOTA: mailparser (ImapFlow) estructura los objetos diferente a mail-listener5
+    // mail.to.value[0].address es ahora mail.to.value[0].address
+    if (mail.to?.value) context.to = mail.to.value[0].address;
+    if (mail.from?.value) context.from = mail.from.value[0].address;
 
-        if (result.noError) {
-            var validClients = await checkValidClients(context);
-            if (context.fraud && validClients) {
-                await desactivateClients(validClients);
-                return;
-            }
+    var result = extractCode(mail.html, mail.subject, context);
 
-            const isCode = result.code !== undefined;
-            if (validClients) {
+    if (result.noError) {
+        var validClients = await checkValidClients(context);
+        if (context.fraud && validClients) {
+            await desactivateClients(validClients);
+            return;
+        }
 
-                if (!isCode) {
-                    var shortenUrl = await shortUrl(result.link);
-                    console.log(shortenUrl)
-                    if (shortenUrl !== null) {
-                        result.link = shortenUrl;
+        const isCode = result.code !== undefined;
+        if (validClients) {
 
-                        if (context.netflixLinkTv) {
-                            console.log(shortenUrl);
+            if (!isCode) {
+                var shortenUrl = await shortUrl(result.link);
+                console.log(shortenUrl)
+                if (shortenUrl !== null) {
+                    result.link = shortenUrl;
 
-                            result.link = "https://ntv.cuenticas.pro/#" + shortenUrl.split("/").pop();
-                            console.log(result.link);
-                        }
+                    if (context.netflixLinkTv) {
+                        console.log(shortenUrl);
 
-                        if (context.crunchyAprobarLink) {
-                            console.log(shortenUrl);
-                            result.link = "https://ac.cuenticas.com/#" + shortenUrl.split("/").pop();
-                            console.log(result.link);
-                        }
+                        result.link = "https://ntv.cuenticas.pro/#" + shortenUrl.split("/").pop();
+                        console.log(result.link);
                     }
 
+                    if (context.crunchyAprobarLink) {
+                        console.log(shortenUrl);
+                        result.link = "https://ac.cuenticas.com/#" + shortenUrl.split("/").pop();
+                        console.log(result.link);
+                    }
                 }
 
-                for (const client of validClients) {
+            }
 
-                    const noWhatsApp = typeof client.name === "string" && client.name.includes("(NoWa)");
-                    // 1️⃣ Preparar número con prefijo (para WhatsApp)
-                    let numeroConPrefijo = null;
-                    if (client.prefix && client.contact) {
-                        numeroConPrefijo = (client.prefix + client.contact).replaceAll(" ", "");
+            for (const client of validClients) {
+
+                const noWhatsApp = typeof client.name === "string" && client.name.includes("(NoWa)");
+                // 1️⃣ Preparar número con prefijo (para WhatsApp)
+                let numeroConPrefijo = null;
+                if (client.prefix && client.contact) {
+                    numeroConPrefijo = (client.prefix + client.contact).replaceAll(" ", "");
+                }
+
+                // 2️⃣ Buscar y validar email
+                let recipientEmail = null;
+                if (client.emailContact && typeof client.emailContact === "string") {
+                    const emailTrim = client.emailContact.trim();
+                    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+                    if (emailRegex.test(emailTrim)) {
+                        recipientEmail = emailTrim;
+                    } else {
+                        console.log(`⚠️ Email no válido o ausente (${client.emailContact}) para ${client.name}`);
                     }
+                }
 
-                    // 2️⃣ Buscar y validar email
-                    let recipientEmail = null;
-                    if (client.emailContact && typeof client.emailContact === "string") {
-                        const emailTrim = client.emailContact.trim();
-                        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-                        if (emailRegex.test(emailTrim)) {
-                            recipientEmail = emailTrim;
-                        } else {
-                            console.log(`⚠️ Email no válido o ausente (${client.emailContact}) para ${client.name}`);
+                // 3️⃣ Preparar contenido base (código o link)
+                const isCode = result.code !== undefined;
+                const codigoOLink = isCode ? "código" : "link";
+                const contenidoPrincipal = isCode ? result.code : result.link;
+
+                // 4️⃣ Formato del mensaje (texto)
+                const boldAbout = result.about
+                    .split("\n")
+                    .map(line => `*${line}*`)
+                    .join("\n");
+
+                const mensajeWhatsApp = `${boldAbout}\n(${context.to})` +
+                    (context.profileName ? `\n*Perfil:* ${context.profileName}` : "") +
+                    `\n👇👇👇`;
+
+                const mensajeExtra =
+                    `☝️☝️☝️\n\n` +
+                    `📢 *Atención* 📢\n` +
+                    `Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.\n` +
+                    (!isCode
+                        ? "\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*\n"
+                        : "\n") +
+                    (context.profileName
+                        ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${context.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
+                        : "") +
+                    `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.\n` +
+                    `⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.\n` +
+                    `¡Gracias por tu *paciencia*! 🙏`;
+
+                // 5️⃣ Envío por WhatsApp (si tiene número)
+                if (!noWhatsApp && numeroConPrefijo) {
+                    /*  */
+                    try {
+                        await sendMessage(numeroConPrefijo, mensajeWhatsApp);
+                        await sendMessage(numeroConPrefijo, contenidoPrincipal);
+                        if (process.env.SEND_ADDITIONAL_INFO) {
+                            await sendMessage(numeroConPrefijo, mensajeExtra);
                         }
+                        console.log(`📱 Enviado a ${numeroConPrefijo} por WhatsApp`);
+                    } catch (err) {
+                        console.error(`❌ Error enviando por WhatsApp a ${numeroConPrefijo}:`, err.message);
                     }
+                }
 
-                    // 3️⃣ Preparar contenido base (código o link)
-                    const isCode = result.code !== undefined;
-                    const codigoOLink = isCode ? "código" : "link";
-                    const contenidoPrincipal = isCode ? result.code : result.link;
+                // ===============================
+                // 5️⃣ INTENTAR ENVÍO POR EMAIL
+                // ===============================
+                let emailEnviado = false;
 
-                    // 4️⃣ Formato del mensaje (texto)
-                    const boldAbout = result.about
-                        .split("\n")
-                        .map(line => `*${line}*`)
-                        .join("\n");
-
-                    const mensajeWhatsApp = `${boldAbout}\n(${context.to})` +
-                        (context.profileName ? `\n*Perfil:* ${context.profileName}` : "") +
-                        `\n👇👇👇`;
-
-                    const mensajeExtra =
-                        `☝️☝️☝️\n\n` +
-                        `📢 *Atención* 📢\n` +
-                        `Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.\n` +
-                        (!isCode
-                            ? "\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*\n"
-                            : "\n") +
-                        (context.profileName
-                            ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${context.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
-                            : "") +
-                        `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.\n` +
-                        `⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.\n` +
-                        `¡Gracias por tu *paciencia*! 🙏`;
-
-                    // 5️⃣ Envío por WhatsApp (si tiene número)
-                    if (!noWhatsApp && numeroConPrefijo) {
-                        /*  */
-                        try {
-                            await sendMessage(numeroConPrefijo, mensajeWhatsApp);
-                            await sendMessage(numeroConPrefijo, contenidoPrincipal);
-                            if (process.env.SEND_ADDITIONAL_INFO) {
-                                await sendMessage(numeroConPrefijo, mensajeExtra);
-                            }
-                            console.log(`📱 Enviado a ${numeroConPrefijo} por WhatsApp`);
-                        } catch (err) {
-                            console.error(`❌ Error enviando por WhatsApp a ${numeroConPrefijo}:`, err.message);
-                        }
-                    }
-
-                    // ===============================
-                    // 5️⃣ INTENTAR ENVÍO POR EMAIL
-                    // ===============================
-                    let emailEnviado = false;
-
-                    if (recipientEmail) {
-                        const mensajeHTML = `
+                if (recipientEmail) {
+                    const mensajeHTML = `
     <div style="font-family:sans-serif">
         <h2>${result.about}</h2>
         <p>Para: ${context.to}</p>
@@ -240,60 +240,58 @@ async function procesarCorreo(mail) {
     </div>
     `;
 
-                        const subject = `${isCode ? "Código" : "Link"} de verificación - ${context.keyword}`;
+                    const subject = `${isCode ? "Código" : "Link"} de verificación - ${context.keyword}`;
 
-                        try {
-                            const resultadoEmail = await sendViaGAS(recipientEmail, subject, mensajeHTML);
+                    try {
+                        const resultadoEmail = await sendViaGAS(recipientEmail, subject, mensajeHTML);
 
-                            if (resultadoEmail.noError) {
-                                emailEnviado = true;
-                                console.log(`📧 Enviado correctamente a ${recipientEmail}`);
-                            } else {
-                                console.error(`⚠️ Error al enviar a ${recipientEmail}: ${resultadoEmail.message}`);
-                            }
-
-                        } catch (err) {
-                            console.error(`❌ Error inesperado enviando email a ${recipientEmail}:`, err.message);
+                        if (resultadoEmail.noError) {
+                            emailEnviado = true;
+                            console.log(`📧 Enviado correctamente a ${recipientEmail}`);
+                        } else {
+                            console.error(`⚠️ Error al enviar a ${recipientEmail}: ${resultadoEmail.message}`);
                         }
+
+                    } catch (err) {
+                        console.error(`❌ Error inesperado enviando email a ${recipientEmail}:`, err.message);
                     }
-
-                    // ===============================
-                    // 6️⃣ FALLBACK A WHATSAPP
-                    // (aunque tenga NoWa)
-                    // ===============================
-                    if (noWhatsApp && !emailEnviado && numeroConPrefijo) {
-                        try {
-                            await sendMessage(
-                                numeroConPrefijo,
-                                "⚠️ *No se pudo enviar por correo*\n\n" + mensajeWhatsApp
-                            );
-
-                            await sendMessage(numeroConPrefijo, contenidoPrincipal);
-
-                            if (process.env.SEND_ADDITIONAL_INFO) {
-                                await sendMessage(numeroConPrefijo, mensajeExtra);
-                            }
-
-                            console.log(`📱 Fallback WhatsApp enviado a ${numeroConPrefijo}`);
-                        } catch (err) {
-                            console.error(`❌ Error enviando WhatsApp fallback a ${numeroConPrefijo}:`, err.message);
-                        }
-                    }
-
-
-
-
-
-
-                    //await sendNotificationEmail(validClients, result, isCode, context);
                 }
-            } else {
-                console.log("Correo que no es de streaming")
+
+                // ===============================
+                // 6️⃣ FALLBACK A WHATSAPP
+                // (aunque tenga NoWa)
+                // ===============================
+                if (noWhatsApp && !emailEnviado && numeroConPrefijo) {
+                    try {
+                        await sendMessage(
+                            numeroConPrefijo,
+                            "⚠️ *No se pudo enviar por correo*\n\n" + mensajeWhatsApp
+                        );
+
+                        await sendMessage(numeroConPrefijo, contenidoPrincipal);
+
+                        if (process.env.SEND_ADDITIONAL_INFO) {
+                            await sendMessage(numeroConPrefijo, mensajeExtra);
+                        }
+
+                        console.log(`📱 Fallback WhatsApp enviado a ${numeroConPrefijo}`);
+                    } catch (err) {
+                        console.error(`❌ Error enviando WhatsApp fallback a ${numeroConPrefijo}:`, err.message);
+                    }
+                }
+
+
+
+
+
+
+                //await sendNotificationEmail(validClients, result, isCode, context);
             }
         } else {
-            console.log("⏩ Ignorado (muy viejo):", mail.subject);
+            console.log("Correo que no es de streaming")
         }
-    
+    }
+
 
 
 }
@@ -308,7 +306,7 @@ if (text) {
 
 function cleanupProcessedMessages() {
     const now = Date.now();
-    
+
 
     for (const [uid, ts] of processedMessages.entries()) {
         if (now - ts > DEDUPE_TTL_MS) {
