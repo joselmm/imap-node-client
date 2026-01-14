@@ -60,41 +60,81 @@ async function leerDatos(RANGES) {
 
 export async function checkValidClients(context) {
 
-
-    var e = await leerDatos(["platforms!A:T", "clients!A:H", "platformNames!A:B"]);
-    var { platforms, clients, platformNames } = e;
+    const e = await leerDatos(["platforms!A:T", "clients!A:H", "platformNames!A:B"]);
+    const { platforms, clients, platformNames } = e;
     if (!platforms || !clients || !platformNames) return null;
-    
-    var validPlatforms = platforms.filter(p => platformNames.find(pno => pno.id === p.platformNameId)?.platformName?.toLowerCase()?.includes(context.keyword) && p.email.toLowerCase().trim() === context.to.toLowerCase().trim() && p.active === "1" && ("" + p.withCredentials) === "1");
 
-    if (context.keyword.toLowerCase()==="disney") {
-        validPlatforms = validPlatforms.filter(p => p.additionalInfo.toLowerCase().includes("{enviar_codigos_disney}"))
+    const keyword = context.keyword.toLowerCase();
+
+    let validPlatforms = platforms.filter(p =>
+        platformNames.find(pno => pno.id === p.platformNameId)
+            ?.platformName?.toLowerCase()?.includes(keyword) &&
+        p.email.toLowerCase().trim() === context.to.toLowerCase().trim() &&
+        p.active === "1" &&
+        ("" + p.withCredentials) === "1"
+    );
+
+    if (validPlatforms.length === 0) return null;
+
+    const isNetflix = keyword === "netflix";
+
+    // 🔥 Detectar si hay flag enviar_todo_netflix
+    const enviarTodoNetflix = isNetflix &&
+        validPlatforms.some(p =>
+            p.additionalInfo?.toLowerCase().includes("{enviar_todo_netflix}")
+        );
+
+    // Disney (sin cambios)
+    if (keyword === "disney") {
+        validPlatforms = validPlatforms.filter(p =>
+            p.additionalInfo?.toLowerCase().includes("{enviar_codigos_disney}")
+        );
     }
 
-   
+    // Netflix:
+    if (isNetflix) {
+        if (enviarTodoNetflix) {
+            // 🔓 Enviar TODO (no filtrar por perfil)
+            validPlatforms = validPlatforms.filter(p =>
+                p.additionalInfo?.toLowerCase().includes("{enviar_todo_netflix}")
+            );
+        }
+        // ❗ Si NO tiene el flag → NO tocamos nada (flujo original)
+    }
 
-    if (!validPlatforms) return null;
+    if (validPlatforms.length === 0) return null;
 
-    if (context.profileName) {
+    // 🔐 PERFIL:
+    // Se aplica si:
+    // - existe profileName
+    // - NO estamos en modo enviarTodoNetflix
+    if (context.profileName && !enviarTodoNetflix) {
+
         validPlatforms = compareProfileNames(validPlatforms, context.profileName);
+
         if (validPlatforms.length === 0) {
 
-            var mess =
-                "❌ No se pudo enviar el link/codigo en alguna cuenta '" + context.keyword + "' (" + context.to.toLowerCase() + ") porque no se encontro el perfil '" + context.profileName + "' en la base de datos";
-            ;
-            await sendMessage(process.env.WHATSAPP_CONTACT, mess)
+            const mess =
+                "❌ No se pudo enviar el link/codigo en alguna cuenta '" +
+                context.keyword + "' (" + context.to.toLowerCase() +
+                ") porque no se encontro el perfil '" +
+                context.profileName + "' en la base de datos";
 
-
-            return null
-
-        };
+            await sendMessage(process.env.WHATSAPP_CONTACT, mess);
+            return null;
+        }
     }
 
-    var clientsIds = validPlatforms.map(p => p.clientId);
-    var uniqueArrayClientIds = [...new Set(clientsIds)];
-    if (!uniqueArrayClientIds) return null;
-    var validClients = clients.filter(c => uniqueArrayClientIds.includes(c.id) && c.active === "1");
+    const clientsIds = validPlatforms.map(p => p.clientId);
+    const uniqueArrayClientIds = [...new Set(clientsIds)];
+    if (uniqueArrayClientIds.length === 0) return null;
+
+    const validClients = clients.filter(c =>
+        uniqueArrayClientIds.includes(c.id) && c.active === "1"
+    );
+
     if (validClients.length === 0) return null;
+
     return validClients;
 }
 
