@@ -23,7 +23,7 @@ async function leerDatos(RANGES) {
         spreadsheetId: process.env.SS_ID,
         ranges: RANGES
     });
-//la cocacola
+    //la cocacola
     const matricesDeObjetos = res.data.valueRanges.map((rango) => {
         const valores = rango.values || [];
 
@@ -91,16 +91,7 @@ export async function checkValidClients(context) {
         );
     }
 
-    // Netflix:
-    if (isNetflix) {
-        if (enviarTodoNetflix) {
-            // 🔓 Enviar TODO (no filtrar por perfil)
-            validPlatforms = validPlatforms.filter(p =>
-                p.additionalInfo?.toLowerCase().includes("{enviar_todo_netflix}")
-            );
-        }
-        // ❗ Si NO tiene el flag → NO tocamos nada (flujo original)
-    }
+   
 
     if (validPlatforms.length === 0) return null;
 
@@ -108,13 +99,33 @@ export async function checkValidClients(context) {
     // Se aplica si:
     // - existe profileName
     // - NO estamos en modo enviarTodoNetflix
-    if (context.profileName && !enviarTodoNetflix) {
+    if (context.profileName && isNetflix) {
 
-        validPlatforms = compareProfileNames(validPlatforms, context.profileName);
+        // Platforms que NO tienen enviar_todo_netflix → flujo original
+        let platformsConPerfil = validPlatforms.filter(p =>
+            !(
+                context.keyword.toLowerCase() === "netflix" &&
+                p.additionalInfo?.toLowerCase().includes("{enviar_todo_netflix}")
+            )
+        );
+
+        // Platforms que SÍ tienen enviar_todo_netflix → se saltan perfil
+        let platformsSinPerfil = validPlatforms.filter(p =>
+            context.keyword.toLowerCase() === "netflix" &&
+            p.additionalInfo?.toLowerCase().includes("{enviar_todo_netflix}")
+        );
+
+        // Aplicar compareProfileNames SOLO a las que deben
+        if (platformsConPerfil.length > 0) {
+            platformsConPerfil = compareProfileNames(platformsConPerfil, context.profileName);
+        }
+
+        // Unir ambas
+        validPlatforms = [...platformsConPerfil, ...platformsSinPerfil];
 
         if (validPlatforms.length === 0) {
 
-            const mess =
+            var mess =
                 "❌ No se pudo enviar el link/codigo en alguna cuenta '" +
                 context.keyword + "' (" + context.to.toLowerCase() +
                 ") porque no se encontro el perfil '" +
@@ -124,6 +135,7 @@ export async function checkValidClients(context) {
             return null;
         }
     }
+
 
     const clientsIds = validPlatforms.map(p => p.clientId);
     const uniqueArrayClientIds = [...new Set(clientsIds)];
