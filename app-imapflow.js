@@ -12,7 +12,7 @@ import fs from "fs";
 let appStarted = false;
 const DEDUPE_TTL_MS = 7 * 60 * 1000;   // 7 minutos
 const CLEANUP_TTL_MS = 10 * 60 * 1000; // 10 minutos (siempre mayor al dedupe)
-const CLEANUP_TTL_MS = 5 * 60 * 1000; // 5 minutos (window de limpieza mayor para evitar reprocesos)
+
 
 import { sendViaGAS } from "./modules/email-sender.js"
 import { desactivateClients } from "./modules/sheet-data-library.js";
