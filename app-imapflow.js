@@ -10,7 +10,8 @@ import { shortUrl } from "./modules/url-shorter.js";
 import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
 import fs from "fs";
 let appStarted = false;
-const DEDUPE_TTL_MS = 90 * 1000; // 1m30
+const DEDUPE_TTL_MS = 7 * 60 * 1000;   // 7 minutos
+const CLEANUP_TTL_MS = 10 * 60 * 1000; // 10 minutos (siempre mayor al dedupe)
 const CLEANUP_TTL_MS = 5 * 60 * 1000; // 5 minutos (window de limpieza mayor para evitar reprocesos)
 
 import { sendViaGAS } from "./modules/email-sender.js"
@@ -133,7 +134,7 @@ async function procesarCorreo(mail) {
 
     const diferenciaSeg = (ahora - recibido) / 1000;
 
-    if (diferenciaSeg > 180) {
+    if (diferenciaSeg > PROCESS_WINDOW_SEC) {
         console.log(
             `⏩ Ignorado por viejo (${Math.round(diferenciaSeg)}s):`,
             mail.subject
@@ -395,7 +396,7 @@ async function failoverCheck() {
             const ageSec = (Date.now() - received) / 1000;
 
             // 3️⃣ FILTRO POR EDAD
-            if (ageSec > 180) {
+            if (ageSec > PROCESS_WINDOW_SEC) {
                 console.log(
                     `⏩ Failover viejo (${Math.round(ageSec)}s):`,
                     meta.envelope.subject
