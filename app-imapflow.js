@@ -239,10 +239,10 @@ async function procesarCorreo(mail) {
                         : "\n") +
                     (context.profileName
                         ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${context.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
-                        : "") +
+                        : ""); /* +
                     `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.\n` +
                     `⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.\n` +
-                    `¡Gracias por tu *paciencia*! 🙏`;
+                    `¡Gracias por tu *paciencia*! 🙏`; */
 
                 // 5️⃣ Envío por WhatsApp (si tiene número)
                 if (!noWhatsApp && numeroConPrefijo) {
