@@ -233,16 +233,20 @@ async function procesarCorreo(mail) {
                 const mensajeExtra =
                     `☝️☝️☝️\n\n` +
                     `📢 *Atención* 📢\n` +
-                    `Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.\n` +
+                    `Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.`+(isCode || context.profileName ? "\n":"") +
                     (!isCode
-                        ? "\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*\n"
-                        : "\n") +
+                        ? `\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*` 
+                        : ""
+                    ) +
                     (context.profileName
-                        ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${context.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄\n`
-                        : ""); /* +
-                    `📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.\n` +
-                    `⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.\n` +
-                    `¡Gracias por tu *paciencia*! 🙏`; */
+                        ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${context.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄`
+                        : ""
+                    );
+
+
+                /*`📩 Ten en cuenta que los *${codigoOLink}s* pueden tardar hasta *un minuto* en llegar.\n` +
+            `⏳ Si pediste otro, por favor *espera* — te llegará por este mismo chat.\n` +
+            `¡Gracias por tu *paciencia*! 🙏`; */
 
                 // 5️⃣ Envío por WhatsApp (si tiene número)
                 if (!noWhatsApp && numeroConPrefijo) {
