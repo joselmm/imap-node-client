@@ -104,6 +104,8 @@ async function startApp() {
             processedMessages.set(key, Date.now());
 
             console.log("📩 Correo NUEVO (exists):", parsed.subject);
+            console.log("para:", parsed.to?.text || "(sin destinatario)");
+
 
             procesarCorreo(parsed).catch(err => console.error("❌ procesarCorreo (exists) error:", err));
 
@@ -233,9 +235,9 @@ async function procesarCorreo(mail) {
                 const mensajeExtra =
                     `☝️☝️☝️\n\n` +
                     `📢 *Atención* 📢\n` +
-                    `Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.`+(isCode || context.profileName ? "\n":"") +
+                    `Si *no* solicitaste este *${codigoOLink}*, simplemente *ignora* este mensaje.` + (isCode || context.profileName ? "\n" : "") +
                     (!isCode
-                        ? `\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*` 
+                        ? `\n*Agrega este contacto 📞 si no te deja abrir el link/enlace 🔗*`
                         : ""
                     ) +
                     (context.profileName
@@ -403,11 +405,19 @@ async function failoverCheck() {
             // 3️⃣ FILTRO POR EDAD
             if (ageSec > PROCESS_WINDOW_SEC) {
                 console.log(
-                    `⏩ Failover viejo (${Math.round(ageSec)}s):`,
+                    `⏩ Failover viejo (${Math.round(ageSec)}s) → marcado como Seen:`,
                     meta.envelope.subject
                 );
+
+                try {
+                    await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
+                } catch (e) {
+                    console.error("⚠️ No se pudo marcar Seen (viejo):", uid);
+                }
+
                 continue;
             }
+
 
             // 4️⃣ AHORA SÍ: BODY
             // antes de bajar el body, reserva la key para evitar races
