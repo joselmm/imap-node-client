@@ -78,11 +78,11 @@ async function startApp() {
             const uid = message.uid;
 
             // 🔐 MARCAR COMO SEEN INMEDIATO
-            try {
+           /*  try {
                 await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
             } catch (e) {
                 console.error("❌ Error marcando Seen:", e.message);
-            }
+            } */
 
 
             let parsed;
@@ -366,8 +366,10 @@ async function failoverCheck() {
         lock = await client.getMailboxLock('INBOX');
 
         const sinceDate = new Date(Date.now() - DEDUPE_TTL_MS);
-        let uids = await client.search({ since: sinceDate });
-
+        let uids = await client.search({
+            since: sinceDate,
+            unseen: true
+        });
         if (!uids?.length) return;
 
         // últimos 20
