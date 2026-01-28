@@ -78,11 +78,11 @@ async function startApp() {
             const uid = message.uid;
 
             // 🔐 MARCAR COMO SEEN INMEDIATO
-           /*  try {
-                await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
-            } catch (e) {
-                console.error("❌ Error marcando Seen:", e.message);
-            } */
+            /*  try {
+                 await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
+             } catch (e) {
+                 console.error("❌ Error marcando Seen:", e.message);
+             } */
 
 
             let parsed;
@@ -479,6 +479,8 @@ async function failoverCheck() {
                 "| age:",
                 Math.round(ageSec) + "s"
             );
+            console.log("para:", parsed.to?.text || "(sin destinatario)");
+
 
             procesarCorreo(parsed);
         }
