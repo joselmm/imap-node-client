@@ -13,6 +13,8 @@ let appStarted = false;
 const DEDUPE_TTL_MS = 7 * 60 * 1000;   // 7 minutos
 const CLEANUP_TTL_MS = 10 * 60 * 1000; // 10 minutos (siempre mayor al dedupe)
 const PROCESS_WINDOW_SEC = 7 * 60; // 7 minutos
+const PROCESSED_LABEL = 'ProcessedByBot';
+
 
 
 import { sendViaGAS } from "./modules/email-sender.js"
@@ -75,14 +77,14 @@ async function startApp() {
                 return;
             }
 
+            if (message.labels?.includes(PROCESSED_LABEL)) {
+                console.log("⏭️ Exists ignorado (ya procesado por label)");
+                return;
+            }
+
             const uid = message.uid;
 
-            // 🔐 MARCAR COMO SEEN INMEDIATO
-            /*  try {
-                 await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
-             } catch (e) {
-                 console.error("❌ Error marcando Seen:", e.message);
-             } */
+         
 
 
             let parsed;
@@ -103,6 +105,15 @@ async function startApp() {
 
             processedMessages.set(key, Date.now());
 
+            try {
+                await client.messageLabelsAdd(
+                    uid,
+                    [PROCESSED_LABEL],
+                    { uid: true }
+                );
+            } catch (e) {
+                console.error("⚠️ No se pudo marcar Processed:", uid);
+            }
             console.log("📩 Correo NUEVO (exists):", parsed.subject);
             console.log("para:", parsed.to?.text || "(sin destinatario)");
 
@@ -368,8 +379,9 @@ async function failoverCheck() {
         const sinceDate = new Date(Date.now() - DEDUPE_TTL_MS);
         let uids = await client.search({
             since: sinceDate,
-            unseen: true
+            not: { label: PROCESSED_LABEL }
         });
+
         if (!uids?.length) return;
 
         // últimos 20
@@ -407,14 +419,18 @@ async function failoverCheck() {
             // 3️⃣ FILTRO POR EDAD
             if (ageSec > PROCESS_WINDOW_SEC) {
                 console.log(
-                    `⏩ Failover viejo (${Math.round(ageSec)}s) → marcado como Seen:`,
+                    `⏩ Failover viejo (${Math.round(ageSec)}s) → marcado como Processed:`,
                     meta.envelope.subject
                 );
 
                 try {
-                    await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
+                    await client.messageLabelsAdd(
+                        uid,
+                        [PROCESSED_LABEL],
+                        { uid: true }
+                    );
                 } catch (e) {
-                    console.error("⚠️ No se pudo marcar Seen (viejo):", uid);
+                    console.error("⚠️ No se pudo marcar Processed:", uid);
                 }
 
                 continue;
@@ -441,11 +457,6 @@ async function failoverCheck() {
                 processedMessages.delete(key);
                 continue;
             }
-
-            // marcar seen (opcionalmente)
-            try {
-                await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
-            } catch (e) { /* ignore */ }
 
             // parse
             let parsed;
@@ -481,6 +492,15 @@ async function failoverCheck() {
             );
             console.log("para:", parsed.to?.text || "(sin destinatario)");
 
+            try {
+                await client.messageLabelsAdd(
+                    uid,
+                    [PROCESSED_LABEL],
+                    { uid: true }
+                );
+            } catch (e) {
+                console.error("⚠️ No se pudo marcar Processed:", uid);
+            }
 
             procesarCorreo(parsed);
         }
