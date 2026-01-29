@@ -105,7 +105,7 @@ async function startApp() {
 
             processedMessages.set(key, Date.now());
 
-            try {
+            /* try {
                 await client.messageLabelsAdd(
                     uid,
                     [PROCESSED_LABEL],
@@ -113,7 +113,7 @@ async function startApp() {
                 );
             } catch (e) {
                 console.error("⚠️ No se pudo marcar Processed:", uid);
-            }
+            } */
             console.log("📩 Correo NUEVO (exists):", parsed.subject);
             console.log("para:", parsed.to?.text || "(sin destinatario)");
 
@@ -422,7 +422,7 @@ async function failoverCheck() {
                     `⏩ Failover viejo (${Math.round(ageSec)}s) → marcado como Processed:`,
                     meta.envelope.subject
                 );
-
+/* 
                 try {
                     await client.messageLabelsAdd(
                         uid,
@@ -431,7 +431,7 @@ async function failoverCheck() {
                     );
                 } catch (e) {
                     console.error("⚠️ No se pudo marcar Processed:", uid);
-                }
+                } */
 
                 continue;
             }
@@ -492,7 +492,7 @@ async function failoverCheck() {
             );
             console.log("para:", parsed.to?.text || "(sin destinatario)");
 
-            try {
+           /*  try {
                 await client.messageLabelsAdd(
                     uid,
                     [PROCESSED_LABEL],
@@ -500,7 +500,7 @@ async function failoverCheck() {
                 );
             } catch (e) {
                 console.error("⚠️ No se pudo marcar Processed:", uid);
-            }
+            } */
 
             procesarCorreo(parsed);
         }
