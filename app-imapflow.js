@@ -40,12 +40,13 @@ async function startApp() {
         if (fs.existsSync(target)) {
             fs.rmSync(target, { recursive: true, force: true });
             console.log('Carpeta auth_info eliminada');
-        }
+        }   
     } catch (err) {
         console.error(`Error al limpiar carpeta: ${err}`);
     }
-
-    await downloadAndUnzipFromGAS();
+    try{
+        await downloadAndUnzipFromGAS();
+    }catch(er){console.err("Error en descarga y uzip de session:"+er.message)}
     await new Promise(r => setTimeout(r, 1000));
 
     connectToWhatsApp();
@@ -513,7 +514,7 @@ async function failoverCheck() {
         } catch (err) {
             console.error("Error subiendo archivo sesión: " + err.message);
         }
-        console.warn("saliendo del proceso")
+        console.log("saliendo del proceso")
         setTimeout(() => process.exit(0), 5000);
         
     } finally {
