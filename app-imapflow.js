@@ -7,7 +7,7 @@ import NodeHtmlParser from "node-html-parser";
 import fetch from "node-fetch";
 import { checkValidClients } from "./modules/google-sheets.js";
 import { shortUrl } from "./modules/url-shorter.js";
-import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
+import { downloadAndUnzipFromGAS, uploadFolderZipToGAS } from "./compress-sessions.js";
 import fs from "fs";
 let appStarted = false;
 const DEDUPE_TTL_MS = 7 * 60 * 1000;   // 7 minutos
@@ -84,7 +84,7 @@ async function startApp() {
 
             const uid = message.uid;
 
-         
+
 
 
             let parsed;
@@ -422,16 +422,16 @@ async function failoverCheck() {
                     `⏩ Failover viejo (${Math.round(ageSec)}s) → marcado como Processed:`,
                     meta.envelope.subject
                 );
-/* 
-                try {
-                    await client.messageLabelsAdd(
-                        uid,
-                        [PROCESSED_LABEL],
-                        { uid: true }
-                    );
-                } catch (e) {
-                    console.error("⚠️ No se pudo marcar Processed:", uid);
-                } */
+                /* 
+                                try {
+                                    await client.messageLabelsAdd(
+                                        uid,
+                                        [PROCESSED_LABEL],
+                                        { uid: true }
+                                    );
+                                } catch (e) {
+                                    console.error("⚠️ No se pudo marcar Processed:", uid);
+                                } */
 
                 continue;
             }
@@ -492,21 +492,30 @@ async function failoverCheck() {
             );
             console.log("para:", parsed.to?.text || "(sin destinatario)");
 
-           /*  try {
-                await client.messageLabelsAdd(
-                    uid,
-                    [PROCESSED_LABEL],
-                    { uid: true }
-                );
-            } catch (e) {
-                console.error("⚠️ No se pudo marcar Processed:", uid);
-            } */
+            /*  try {
+                 await client.messageLabelsAdd(
+                     uid,
+                     [PROCESSED_LABEL],
+                     { uid: true }
+                 );
+             } catch (e) {
+                 console.error("⚠️ No se pudo marcar Processed:", uid);
+             } */
 
             procesarCorreo(parsed);
         }
 
     } catch (err) {
         console.error("❌ Failover error:", err.message);
+        try {
+            await uploadFolderZipToGAS();
+            console.log("Se subió el archivo de sesión a GAS");
+        } catch (err) {
+            console.error("Error subiendo archivo sesión: " + err.message);
+        }
+        console.warn("saliendo del proceso")
+        setTimeout(() => process.exit(0), 5000);
+        
     } finally {
         if (lock) lock.release();
     }
