@@ -46,7 +46,7 @@ async function startApp() {
     }
     try{
         await downloadAndUnzipFromGAS();
-    }catch(er){console.err("Error en descarga y uzip de session:"+er.message)}
+    }catch(er){console.error("Error en descarga y uzip de session:"+er.message)}
     await new Promise(r => setTimeout(r, 1000));
 
     connectToWhatsApp();
