@@ -74,6 +74,8 @@ export async function checkValidClients(context) {
         ("" + p.withCredentials) === "1"
     );
 
+
+
     if (validPlatforms.length === 0) return null;
 
     const isNetflix = keyword === "netflix";
@@ -84,14 +86,12 @@ export async function checkValidClients(context) {
             p.additionalInfo?.toLowerCase().includes("{enviar_todo_netflix}")
         );
 
-    // Disney (sin cambios)
-    if (keyword === "disney") {
+    // Otras plataformas
+    if (context.sendJustIf) {
         validPlatforms = validPlatforms.filter(p =>
-            p.additionalInfo?.toLowerCase().includes("{enviar_codigos_disney}")
+            p.additionalInfo?.toLowerCase().includes(context.sendJustIf)
         );
     }
-
-   
 
     if (validPlatforms.length === 0) return null;
 
