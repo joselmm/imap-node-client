@@ -14,6 +14,7 @@ const DEDUPE_TTL_MS = 7 * 60 * 1000;   // 7 minutos
 const CLEANUP_TTL_MS = 10 * 60 * 1000; // 10 minutos (siempre mayor al dedupe)
 const PROCESS_WINDOW_SEC = 7 * 60; // 7 minutos
 const PROCESSED_LABEL = 'ProcessedByBot';
+var stopFailOver = false;
 
 
 
@@ -390,6 +391,7 @@ function cleanupProcessedMessages() {
     }
 }
 async function failoverCheck() {
+    if(stopFailOver) console.warn("No se ejecutara porque no hay conexion imap")
     let lock;
 
     try {
@@ -528,6 +530,7 @@ async function failoverCheck() {
         console.error("❌ Failover error:", err.message);
         try {
             await uploadFolderZipToGAS();
+            stopFailOver = true;
             console.log("Se subió el archivo de sesión a GAS");
         } catch (err) {
             console.error("Error subiendo archivo sesión: " + err.message);
