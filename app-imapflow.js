@@ -244,7 +244,7 @@ async function procesarCorreo(mail) {
                 if (client.emailContact && typeof client.emailContact === "string") {
                     const emailTrim = client.emailContact.trim();
                     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-                    if (emailRegex.match(emailTrim)) {
+                    if (emailTrim.match(emailRegex)) {
                         recipientEmail = emailTrim;
                     } else {
                         console.log(`⚠️ Email no válido o ausente (${client.emailContact}) para ${client.name}`);
