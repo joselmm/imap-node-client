@@ -391,7 +391,7 @@ function cleanupProcessedMessages() {
     }
 }
 async function failoverCheck() {
-    if(stopFailOver) console.warn("No se ejecutara porque no hay conexion imap")
+    if(stopFailOver) return console.warn("No se ejecutara porque no hay conexion imap");
     let lock;
 
     try {
