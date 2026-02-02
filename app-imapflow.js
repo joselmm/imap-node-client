@@ -282,7 +282,7 @@ async function procesarCorreo(mail) {
             `¡Gracias por tu *paciencia*! 🙏`; */
 
                 // 5️⃣ Envío por WhatsApp (si tiene número)
-                if (!noWhatsApp && numeroConPrefijo) {
+                if (!noWhatsApp && numeroConPrefijo && !client.name.includes("(NeverWa)")) {
                     /*  */
                     try {
                         await sendMessage(numeroConPrefijo, mensajeWhatsApp);
