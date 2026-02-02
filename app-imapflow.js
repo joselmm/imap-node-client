@@ -15,6 +15,8 @@ const CLEANUP_TTL_MS = 10 * 60 * 1000; // 10 minutos (siempre mayor al dedupe)
 const PROCESS_WINDOW_SEC = 7 * 60; // 7 minutos
 const PROCESSED_LABEL = 'ProcessedByBot';
 var stopFailOver = false;
+const neverWaFlag = "(NeverWa)";
+const noWaFlag = "(NoWa)";
 
 
 
@@ -229,7 +231,8 @@ async function procesarCorreo(mail) {
 
             for (const client of validClients) {
 
-                const noWhatsApp = typeof client.name === "string" && client.name.includes("(NoWa)");
+                const noWhatsApp = typeof client.name === "string" && client.name.includes(noWaFlag);
+                const neverWhatsapp = typeof client.name === "string" && client.name.includes(neverWaFlag);
                 // 1️⃣ Preparar número con prefijo (para WhatsApp)
                 let numeroConPrefijo = null;
                 if (client.prefix && client.contact) {
@@ -241,7 +244,7 @@ async function procesarCorreo(mail) {
                 if (client.emailContact && typeof client.emailContact === "string") {
                     const emailTrim = client.emailContact.trim();
                     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-                    if (emailRegex.test(emailTrim)) {
+                    if (emailRegex.match(emailTrim)) {
                         recipientEmail = emailTrim;
                     } else {
                         console.log(`⚠️ Email no válido o ausente (${client.emailContact}) para ${client.name}`);
@@ -282,8 +285,8 @@ async function procesarCorreo(mail) {
             `¡Gracias por tu *paciencia*! 🙏`; */
 
                 // 5️⃣ Envío por WhatsApp (si tiene número)
-                if (!noWhatsApp && numeroConPrefijo && !client.name.includes("(NeverWa)")) {
-                    /*  */
+                if (!noWhatsApp && !neverWhatsapp && numeroConPrefijo ) {
+                 
                     try {
                         await sendMessage(numeroConPrefijo, mensajeWhatsApp);
                         await sendMessage(numeroConPrefijo, contenidoPrincipal);
@@ -337,7 +340,7 @@ async function procesarCorreo(mail) {
                 // 6️⃣ FALLBACK A WHATSAPP
                 // (aunque tenga NoWa)
                 // ===============================
-                if (noWhatsApp && !emailEnviado && numeroConPrefijo) {
+                if (noWhatsApp && !emailEnviado && !neverWaFlag) {
                     try {
                         await sendMessage(
                             numeroConPrefijo,
@@ -391,7 +394,7 @@ function cleanupProcessedMessages() {
     }
 }
 async function failoverCheck() {
-    if(stopFailOver) return console.warn("No se ejecutara porque no hay conexion imap");
+    if (stopFailOver) return console.warn("No se ejecutara porque no hay conexion imap");
     let lock;
 
     try {
