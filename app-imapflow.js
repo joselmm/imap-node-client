@@ -19,6 +19,7 @@ const PROCESSED_LABEL = 'ProcessedByBot';
 
 import { sendViaGAS } from "./modules/email-sender.js"
 import { desactivateClients } from "./modules/sheet-data-library.js";
+import { getNetflixTravelCode } from "./modules/netflix-utils.js";
 
 // ===============================
 // DEDUPE EN MEMORIA (45s)
@@ -40,13 +41,13 @@ async function startApp() {
         if (fs.existsSync(target)) {
             fs.rmSync(target, { recursive: true, force: true });
             console.log('Carpeta auth_info eliminada');
-        }   
+        }
     } catch (err) {
         console.error(`Error al limpiar carpeta: ${err}`);
     }
-    try{
+    try {
         await downloadAndUnzipFromGAS();
-    }catch(er){console.error("Error en descarga y uzip de session:"+er.message)}
+    } catch (er) { console.error("Error en descarga y uzip de session:" + er.message) }
     await new Promise(r => setTimeout(r, 1000));
 
     connectToWhatsApp();
@@ -183,10 +184,27 @@ async function procesarCorreo(mail) {
             return;
         }
 
-        const isCode = result.code !== undefined;
+        let isCode = result.code !== undefined;
         if (validClients) {
 
+            if (!isCode && context.netflixTravel) {
+                try {
+                    console.log("✈️✈️✈️ Tratando de extraer codigo de viaje netflix con fetch")
+                    var netflixTravelCodeResult = await getNetflixTravelCode(result.link);
+                    if (netflixTravelCodeResult.noError) {
+                        delete result.link;
+                        result.code = netflixTravelCodeResult.code;
+                        isCode = true;
+                    } else {
+                        throw new Error(netflixTravelCodeResult.errorMessage);
+                    }
+                } catch (error) {
+                    console.warn('✈️✈️✈️ No se pudo extraer codigo estoy de viaje netflix: ' + error.message)
+                }
+            }
+
             if (!isCode) {
+
                 var shortenUrl = await shortUrl(result.link);
                 console.log(shortenUrl)
                 if (shortenUrl !== null) {
@@ -516,7 +534,7 @@ async function failoverCheck() {
         }
         console.log("saliendo del proceso")
         setTimeout(() => process.exit(0), 5000);
-        
+
     } finally {
         if (lock) lock.release();
     }
