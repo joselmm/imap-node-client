@@ -82,10 +82,10 @@ async function startApp() {
                 return;
             }
 
-          /*   if (message.labels?.includes(PROCESSED_LABEL)) {
-                console.log("⏭️ Exists ignorado (ya procesado por label)");
-                return;
-            } */
+            /*   if (message.labels?.includes(PROCESSED_LABEL)) {
+                  console.log("⏭️ Exists ignorado (ya procesado por label)");
+                  return;
+              } */
 
             const uid = message.uid;
 
@@ -396,7 +396,7 @@ function cleanupProcessedMessages() {
 async function failoverCheck() {
     console.log("Checking failover... " + new Date().toLocaleTimeString()); // <-- Agrega esto
     if (stopFailOver) return console.warn("Failover abortado: stopFailOver es true");
-    
+
     let lock;
 
     try {
@@ -448,6 +448,12 @@ async function failoverCheck() {
                     `⏩ Failover viejo (${Math.round(ageSec)}s) → marcado como Processed:`,
                     meta.envelope.subject
                 );
+
+                processedMessages.set(key, Date.now()); // <--- Agrégalo aquí para que el próximo check haga "Dedupe" y no "Viejo"
+
+                
+
+                continue;
                 /* 
                                 try {
                                     await client.messageLabelsAdd(
@@ -458,8 +464,6 @@ async function failoverCheck() {
                                 } catch (e) {
                                     console.error("⚠️ No se pudo marcar Processed:", uid);
                                 } */
-
-                continue;
             }
 
 
