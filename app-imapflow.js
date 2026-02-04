@@ -82,10 +82,10 @@ async function startApp() {
                 return;
             }
 
-            if (message.labels?.includes(PROCESSED_LABEL)) {
+          /*   if (message.labels?.includes(PROCESSED_LABEL)) {
                 console.log("⏭️ Exists ignorado (ya procesado por label)");
                 return;
-            }
+            } */
 
             const uid = message.uid;
 
@@ -285,8 +285,8 @@ async function procesarCorreo(mail) {
             `¡Gracias por tu *paciencia*! 🙏`; */
 
                 // 5️⃣ Envío por WhatsApp (si tiene número)
-                if (!noWhatsApp && !neverWhatsapp && numeroConPrefijo ) {
-                 
+                if (!noWhatsApp && !neverWhatsapp && numeroConPrefijo) {
+
                     try {
                         await sendMessage(numeroConPrefijo, mensajeWhatsApp);
                         await sendMessage(numeroConPrefijo, contenidoPrincipal);
@@ -367,7 +367,7 @@ async function procesarCorreo(mail) {
                 //await sendNotificationEmail(validClients, result, isCode, context);
             }
         } else {
-            console.log("Correo que no es de streaming")
+            console.log("No se encontraron clientes validos / correo no encontrado")
         }
     }
 
@@ -394,7 +394,9 @@ function cleanupProcessedMessages() {
     }
 }
 async function failoverCheck() {
-    if (stopFailOver) return console.warn("No se ejecutara porque no hay conexion imap");
+    console.log("Checking failover... " + new Date().toLocaleTimeString()); // <-- Agrega esto
+    if (stopFailOver) return console.warn("Failover abortado: stopFailOver es true");
+    
     let lock;
 
     try {
@@ -402,11 +404,11 @@ async function failoverCheck() {
 
         const sinceDate = new Date(Date.now() - DEDUPE_TTL_MS);
         let uids = await client.search({
-            since: sinceDate,
-            not: { label: PROCESSED_LABEL }
+            since: sinceDate/* ,
+            not: { label: PROCESSED_LABEL } */
         });
 
-        if (!uids?.length) return;
+        if (!uids?.length) return console.log("📧📧📧 No se encontraron correos segun el failvover");
 
         // últimos 20
         uids.sort((a, b) => b - a);
