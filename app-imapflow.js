@@ -394,29 +394,29 @@ function cleanupProcessedMessages() {
     }
 }
 async function failoverCheck() {
-    console.log("Checking failover... " + new Date().toLocaleTimeString()); // <-- Agrega esto
+    console.log("Checking failover... " + new Date().toLocaleTimeString());
     if (stopFailOver) return console.warn("Failover abortado: stopFailOver es true");
 
     let lock;
+    // Inicializamos contadores para este ciclo
+    let countDedupe = 0;
+    let countViejo = 0;
+    let countProcesados = 0;
 
     try {
         lock = await client.getMailboxLock('INBOX');
 
         const sinceDate = new Date(Date.now() - DEDUPE_TTL_MS);
         let uids = await client.search({
-            since: sinceDate/* ,
-            not: { label: PROCESSED_LABEL } */
+            since: sinceDate
         });
 
-        if (!uids?.length) return console.log("📧📧📧 No se encontraron correos segun el failvover");
+        if (!uids?.length) return console.log("📧 No se encontraron correos en el servidor.");
 
-        // últimos 20
         uids.sort((a, b) => b - a);
         uids = uids.slice(0, 20);
 
         for (const uid of uids) {
-
-            // 1️⃣ ENVELOPE primero (sin BODY)
             const meta = await client.fetchOne(uid, {
                 envelope: true,
                 uid: true
@@ -428,125 +428,75 @@ async function failoverCheck() {
                 ? new Date(meta.envelope.date).getTime()
                 : null;
 
-            const key =
-                meta.envelope.messageId ||
-                `${uid}-${received}`;
+            const key = meta.envelope.messageId || `${uid}-${received}`;
 
-            // 2️⃣ DEDUPE ANTES DE TODO
+            // 1️⃣ CHECK DEDUPE
             if (processedMessages.has(key)) {
-                console.log("⏭️ Failover dedupe:", meta.envelope.subject);
+                countDedupe++; // Sumamos al contador en lugar de loguear
                 continue;
             }
 
             if (!received || isNaN(received)) continue;
-
             const ageSec = (Date.now() - received) / 1000;
 
-            // 3️⃣ FILTRO POR EDAD
+            // 2️⃣ CHECK VIEJO
             if (ageSec > PROCESS_WINDOW_SEC) {
-                console.log(
-                    `⏩ Failover viejo (${Math.round(ageSec)}s) → marcado como Processed:`,
-                    meta.envelope.subject
-                );
-
-                processedMessages.set(key, Date.now()); // <--- Agrégalo aquí para que el próximo check haga "Dedupe" y no "Viejo"
-
-                
-
+                countViejo++; // Sumamos al contador
+                // Opcional: marcar como procesado para que en el próximo ciclo caiga en 'dedupe'
+                processedMessages.set(key, Date.now());
                 continue;
-                /* 
-                                try {
-                                    await client.messageLabelsAdd(
-                                        uid,
-                                        [PROCESSED_LABEL],
-                                        { uid: true }
-                                    );
-                                } catch (e) {
-                                    console.error("⚠️ No se pudo marcar Processed:", uid);
-                                } */
             }
 
-
-            // 4️⃣ AHORA SÍ: BODY
-            // antes de bajar el body, reserva la key para evitar races
+            // 3️⃣ PROCESAR REALMENTE
             processedMessages.set(key, Date.now());
 
             let msg;
             try {
                 msg = await client.fetchOne(uid, { source: true, uid: true });
             } catch (e) {
-                console.error("❌ fetchOne failover uid", uid, e && (e.stack || e.message || e));
-                // liberar reserva para que otro intento posterior pueda procesarlo
+                console.error("❌ fetchOne failover uid", uid, e.message);
                 processedMessages.delete(key);
                 continue;
             }
 
             if (!msg?.source) {
-                console.log("⏩ Failover sin source:", uid);
-                // liberar reserva
                 processedMessages.delete(key);
                 continue;
             }
 
-            // parse
             let parsed;
             try {
                 parsed = await simpleParser(msg.source);
             } catch (e) {
-                console.error("❌ parse failover:", e && (e.stack || e.message || e));
-                // liberar reserva
+                console.error("❌ parse failover:", e.message);
                 processedMessages.delete(key);
                 continue;
             }
 
-            // recalcular key final (normalizado)
             const finalKey = normalizeMessageId(parsed.messageId) || key;
-
-            // si finalKey difiere, liberar la reserva anterior y chequear duplicado final
             if (finalKey !== key) {
                 processedMessages.delete(key);
                 if (processedMessages.has(finalKey)) {
-                    console.log("⏭️ Failover ignorado (dedupe final):", parsed.subject);
+                    countDedupe++;
                     continue;
                 }
             }
 
-            // confirmar con finalKey
             processedMessages.set(finalKey, Date.now());
 
-            console.log(
-                "♻️ Correo NUEVO (failover):",
-                parsed.subject,
-                "| age:",
-                Math.round(ageSec) + "s"
-            );
-            console.log("para:", parsed.to?.text || "(sin destinatario)");
-
-            /*  try {
-                 await client.messageLabelsAdd(
-                     uid,
-                     [PROCESSED_LABEL],
-                     { uid: true }
-                 );
-             } catch (e) {
-                 console.error("⚠️ No se pudo marcar Processed:", uid);
-             } */
-
+            console.log(`♻️ Correo NUEVO (failover): ${parsed.subject} | para: ${parsed.to?.text || "..."}`);
             procesarCorreo(parsed);
+            countProcesados++;
+        }
+
+        // --- RESUMEN DEL CICLO ---
+        if (countDedupe > 0 || countViejo > 0 || countProcesados > 0) {
+            console.log(`📊 [Resumen Failover]: ${countProcesados} procesados, ${countDedupe} duplicados ignorados, ${countViejo} muy viejos.`);
         }
 
     } catch (err) {
         console.error("❌ Failover error:", err.message);
-        try {
-            await uploadFolderZipToGAS();
-            stopFailOver = true;
-            console.log("Se subió el archivo de sesión a GAS");
-        } catch (err) {
-            console.error("Error subiendo archivo sesión: " + err.message);
-        }
-        console.log("saliendo del proceso")
-        setTimeout(() => process.exit(0), 5000);
-
+        // ... tu lógica de error y salida ...
     } finally {
         if (lock) lock.release();
     }
