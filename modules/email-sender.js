@@ -50,24 +50,19 @@ export async function sendNotificationEmail(clients, info, isCode, context) {
 // 👉 índice global: última URL que funcionó
 let lastIndexUsed = 0;
 
+
 export async function sendViaGAS(recipientEmail, subject, htmlBody) {
     const rawUrls = process.env.EMAIL_SENDER_URL || "";
+    const urls = rawUrls.split(",").map(u => u.trim()).filter(Boolean);
 
-    const urls = rawUrls.includes(",")
-        ? rawUrls.split(",").map(u => u.trim()).filter(Boolean)
-        : [rawUrls.trim()];
-
-    if (!urls.length || !urls[0]) {
-        return { noError: false, message: "No hay EMAIL_SENDER_URL configuradas" };
+    if (!urls.length) {
+        return { noError: false, message: "No hay URLs configuradas" };
     }
 
-    const payload = {
-        recipient: recipientEmail,
-        subject,
-        emailBody: htmlBody,
-    };
+    const payload = { recipient: recipientEmail, subject, emailBody: htmlBody };
 
     for (let i = 0; i < urls.length; i++) {
+        // Calculamos el índice actual basado en el último que funcionó o se intentó
         const index = (lastIndexUsed + i) % urls.length;
         const gasUrl = urls[index];
 
@@ -81,23 +76,26 @@ export async function sendViaGAS(recipientEmail, subject, htmlBody) {
             const json = await res.json();
 
             if (json.noError) {
-                // 👉 avanzar al siguiente
+                // ✅ ÉXITO: Guardamos el SIGUIENTE índice para la próxima llamada global
                 lastIndexUsed = (index + 1) % urls.length;
-
-                console.log(`📧 Enviado vía GAS [${index}] →`, gasUrl);
+                console.log(`📧 Enviado vía GAS [${index}]`);
                 return json;
             }
 
             console.warn(`⚠️ GAS respondió error [${index}] →`, json.message);
-
         } catch (err) {
-            console.error(`❌ Error con GAS [${index}] →`, err.message);
+            console.error(`❌ Error de conexión [${index}] →`, err.message);
         }
+        
+        // OPCIONAL: Si quieres que incluso si falla, la PRÓXIMA llamada 
+        // a la función intente con el siguiente, podrías actualizar 
+        // lastIndexUsed aquí también.
     }
 
-    return {
-        noError: false,
-        message: "Todas las URLs de EMAIL_SENDER_URL fallaron",
-    };
+    // Si llegamos aquí, todas fallaron. 
+    // Forzamos el avance para que la próxima vez no empiece por la misma que falló
+    lastIndexUsed = (lastIndexUsed + 1) % urls.length;
+
+    return { noError: false, message: "Todas las URLs fallaron" };
 }
 
