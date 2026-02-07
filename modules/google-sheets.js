@@ -78,6 +78,12 @@ export async function checkValidClients(context) {
 
     if (validPlatforms.length === 0) return null;
 
+    if (context.sendJustIf) {
+        validPlatforms = validPlatforms.filter(p =>
+            p.additionalInfo?.toLowerCase().includes(context.sendJustIf)
+        );
+    }
+
     const isNetflix = keyword === "netflix";
 
     // 🔥 Detectar si hay flag enviar_todo_netflix
@@ -86,12 +92,7 @@ export async function checkValidClients(context) {
             p.additionalInfo?.toLowerCase().includes("{enviar_todo_netflix}")
         );
 
-    // Otras plataformas
-    if (context.sendJustIf) {
-        validPlatforms = validPlatforms.filter(p =>
-            p.additionalInfo?.toLowerCase().includes(context.sendJustIf)
-        );
-    }
+
 
     if (validPlatforms.length === 0) return null;
 
