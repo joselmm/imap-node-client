@@ -60,8 +60,7 @@ app.get("/qr", (req, res) => {
   res.send(html);
 });
 
-const fs = require('fs');
-const path = require('path');
+
 
 app.get("/netflix-house", (req, res) => {
   // Verificamos si la variable tiene una ruta válida

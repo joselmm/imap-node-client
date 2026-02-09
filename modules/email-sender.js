@@ -49,7 +49,7 @@ export async function sendNotificationEmail(clients, info, isCode, context) {
 // Nueva función para enviar por GAS
 // 👉 índice global: última URL que funcionó
 // Variable global en el módulo para recordar el estado
-let lastIndexUsed = 0;
+var lastIndexUsed = 0;
 
 export async function sendViaGAS(recipientEmail, subject, htmlBody) {
     const rawUrls = process.env.EMAIL_SENDER_URL || "";
