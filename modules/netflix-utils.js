@@ -23,23 +23,36 @@ export async function getNetflixTravelCode(url) {
     }
 }
 
+
 export async function saveNetflixHouseholdHtml(url, filePath) {
     var result = { noError: true };
     try {
+        // 1. Verificar si el archivo ya existe (forma asíncrona para fs/promises)
+        try {
+            await fs.access(filePath);
+            // Si el código llega aquí, es que el archivo existe
+            console.log(`ℹ️ El archivo ya existe en: ${filePath}`);
+            result.savedPath = filePath;
+            result.alreadyExists = true;
+            return result; 
+        } catch {
+            // Si entra al catch de access, es que el archivo NO existe. Seguimos adelante.
+        }
+
+        // 2. Si no existe, procedemos a la descarga
         var httpRes = await fetch(url, options);
 
         if (!httpRes.ok) {
             throw new Error(`HTTP ${httpRes.status} - ${httpRes.statusText}`);
         }
 
-        // Obtenemos el texto plano del HTML
         var htmlRawText = await httpRes.text();
 
-        // Guardamos el archivo en el disco
-        // filePath debe ser algo como "./temp/netflix.html"
+        // 3. Guardar el archivo (fs ya es la versión de promesas)
         await fs.writeFile(filePath, htmlRawText, 'utf8');
 
         result.savedPath = filePath;
+        result.alreadyExists = false;
 
     } catch (error) {
         result.noError = false;
