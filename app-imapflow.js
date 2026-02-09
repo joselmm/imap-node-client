@@ -178,25 +178,25 @@ async function procesarCorreo(mail) {
     if (mail.to?.value) context.to = mail.to.value[0].address;
     if (mail.from?.value) context.from = mail.from.value[0].address;
 
-    var travelResult = extractCode(mail.html, mail.subject, context);
+    var result = extractCode(mail.html, mail.subject, context);
 
-    if (travelResult.noError) {
+    if (result.noError) {
         var validClients = await checkValidClients(context);
         if (context.fraud && validClients) {
             await desactivateClients(validClients);
             return;
         }
 
-        let isCode = travelResult.code !== undefined;
+        let isCode = result.code !== undefined;
         if (validClients) {
 
             if (!isCode && context.netflixTravel) {
                 try {
                     console.log("✈️✈️✈️ Tratando de extraer codigo de viaje netflix con fetch")
-                    var travelResult = await getNetflixTravelCode(travelResult.link);
+                    var travelResult = await getNetflixTravelCode(result.link);
                     if (travelResult.noError) {
-                        delete travelResult.link;
-                        travelResult.code = travelResult.code;
+                        delete result.link;
+                        result.code = travelResult.code;
                         isCode = true;
                     } else {
                         throw new Error(travelResult.errorMessage);
@@ -209,7 +209,7 @@ async function procesarCorreo(mail) {
             if (!isCode && context.netflixHouseHold) {
                 try {
                     console.log("🏠🏠🏠 Tratando de guardar household netflix html con fetch")
-                    var resultSaved = await saveNetflixHouseholdHtml(travelResult.link, "./netflix_house.html");
+                    var resultSaved = await saveNetflixHouseholdHtml(result.link, "./netflix_house.html");
                     if (resultSaved.noError) {
                         console.log("html netflix household guardado ✅✅✅, " + resultSaved.savedPath)
                     } else {
@@ -222,22 +222,22 @@ async function procesarCorreo(mail) {
 
             if (!isCode) {
 
-                var shortenUrl = await shortUrl(travelResult.link);
+                var shortenUrl = await shortUrl(result.link);
                 console.log(shortenUrl)
                 if (shortenUrl !== null) {
-                    travelResult.link = shortenUrl;
+                    result.link = shortenUrl;
 
                     if (context.netflixLinkTv) {
                         console.log(shortenUrl);
 
-                        travelResult.link = "https://ntv.cuenticas.pro/#" + shortenUrl.split("/").pop();
-                        console.log(travelResult.link);
+                        result.link = "https://ntv.cuenticas.pro/#" + shortenUrl.split("/").pop();
+                        console.log(result.link);
                     }
 
                     if (context.crunchyAprobarLink) {
                         console.log(shortenUrl);
-                        travelResult.link = "https://ac.cuenticas.com/#" + shortenUrl.split("/").pop();
-                        console.log(travelResult.link);
+                        result.link = "https://ac.cuenticas.com/#" + shortenUrl.split("/").pop();
+                        console.log(result.link);
                     }
                 }
 
@@ -266,12 +266,12 @@ async function procesarCorreo(mail) {
                 }
 
                 // 3️⃣ Preparar contenido base (código o link)
-                const isCode = travelResult.code !== undefined;
+                const isCode = result.code !== undefined;
                 const codigoOLink = isCode ? "código" : "link";
-                const contenidoPrincipal = isCode ? travelResult.code : travelResult.link;
+                const contenidoPrincipal = isCode ? result.code : result.link;
 
                 // 4️⃣ Formato del mensaje (texto)
-                const boldAbout = travelResult.about
+                const boldAbout = result.about
                     .split("\n")
                     .map(line => `*${line}*`)
                     .join("\n");
@@ -321,7 +321,7 @@ async function procesarCorreo(mail) {
                 if (recipientEmail) {
                     const mensajeHTML = `
     <div style="font-family:sans-serif">
-        <h2>${travelResult.about}</h2>
+        <h2>${result.about}</h2>
         <p>Para: ${context.to}</p>
         ${context.profileName ? `<p><b>Perfil:</b> ${context.profileName}</p>` : ""}
         <p><b>${codigoOLink.toUpperCase()}:</b> ${contenidoPrincipal}</p>
