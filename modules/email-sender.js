@@ -48,8 +48,8 @@ export async function sendNotificationEmail(clients, info, isCode, context) {
 
 // Nueva función para enviar por GAS
 // 👉 índice global: última URL que funcionó
+// Variable global en el módulo para recordar el estado
 let lastIndexUsed = 0;
-
 
 export async function sendViaGAS(recipientEmail, subject, htmlBody) {
     const rawUrls = process.env.EMAIL_SENDER_URL || "";
@@ -61,9 +61,17 @@ export async function sendViaGAS(recipientEmail, subject, htmlBody) {
 
     const payload = { recipient: recipientEmail, subject, emailBody: htmlBody };
 
-    for (let i = 0; i < urls.length; i++) {
-        // Calculamos el índice actual basado en el último que funcionó o se intentó
-        const index = (lastIndexUsed + i) % urls.length;
+    // 1. Creamos un array con todos los índices disponibles: [0, 1, 2, ...]
+    const indices = urls.map((_, i) => i);
+
+    // 2. Reorganizamos para que empiece desde 'lastIndexUsed'
+    // Ejemplo: si lastIndex era 2 y hay 5 URLs, el orden será [2, 3, 4, 0, 1]
+    const sequence = [
+        ...indices.slice(lastIndexUsed),
+        ...indices.slice(0, lastIndexUsed)
+    ];
+
+    for (const index of sequence) {
         const gasUrl = urls[index];
 
         try {
@@ -71,14 +79,16 @@ export async function sendViaGAS(recipientEmail, subject, htmlBody) {
                 method: "POST",
                 body: JSON.stringify(payload),
                 headers: { "Content-Type": "application/json" },
+                // Añadimos un pequeño timeout para que no se quede colgado si una URL no responde
+                signal: AbortSignal.timeout(10000) 
             });
 
             const json = await res.json();
 
             if (json.noError) {
-                // ✅ ÉXITO: Guardamos el SIGUIENTE índice para la próxima llamada global
+                // ✅ ÉXITO: El próximo inicio será el siguiente índice
                 lastIndexUsed = (index + 1) % urls.length;
-                console.log(`📧 Enviado vía GAS [${index}]`);
+                console.log(`📧 Enviado vía GAS [${index}] - Siguiente inicio: ${lastIndexUsed}`);
                 return json;
             }
 
@@ -86,14 +96,10 @@ export async function sendViaGAS(recipientEmail, subject, htmlBody) {
         } catch (err) {
             console.error(`❌ Error de conexión [${index}] →`, err.message);
         }
-        
-        // OPCIONAL: Si quieres que incluso si falla, la PRÓXIMA llamada 
-        // a la función intente con el siguiente, podrías actualizar 
-        // lastIndexUsed aquí también.
     }
 
-    // Si llegamos aquí, todas fallaron. 
-    // Forzamos el avance para que la próxima vez no empiece por la misma que falló
+    // Si llegamos aquí, todas fallaron en esta vuelta.
+    // Avanzamos uno manualmente para que la próxima llamada no repita el primer error inmediatamente.
     lastIndexUsed = (lastIndexUsed + 1) % urls.length;
 
     return { noError: false, message: "Todas las URLs fallaron" };
