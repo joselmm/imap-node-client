@@ -22,7 +22,7 @@ const noWaFlag = "(NoWa)";
 
 import { sendViaGAS } from "./modules/email-sender.js"
 import { desactivateClients } from "./modules/sheet-data-library.js";
-import { getNetflixTravelCode } from "./modules/netflix-utils.js";
+import { getNetflixTravelCode, saveNetflixHouseholdHtml } from "./modules/netflix-utils.js";
 
 // ===============================
 // DEDUPE EN MEMORIA (45s)
@@ -178,52 +178,66 @@ async function procesarCorreo(mail) {
     if (mail.to?.value) context.to = mail.to.value[0].address;
     if (mail.from?.value) context.from = mail.from.value[0].address;
 
-    var result = extractCode(mail.html, mail.subject, context);
+    var travelResult = extractCode(mail.html, mail.subject, context);
 
-    if (result.noError) {
+    if (travelResult.noError) {
         var validClients = await checkValidClients(context);
         if (context.fraud && validClients) {
             await desactivateClients(validClients);
             return;
         }
 
-        let isCode = result.code !== undefined;
+        let isCode = travelResult.code !== undefined;
         if (validClients) {
 
             if (!isCode && context.netflixTravel) {
                 try {
                     console.log("✈️✈️✈️ Tratando de extraer codigo de viaje netflix con fetch")
-                    var netflixTravelCodeResult = await getNetflixTravelCode(result.link);
-                    if (netflixTravelCodeResult.noError) {
-                        delete result.link;
-                        result.code = netflixTravelCodeResult.code;
+                    var travelResult = await getNetflixTravelCode(travelResult.link);
+                    if (travelResult.noError) {
+                        delete travelResult.link;
+                        travelResult.code = travelResult.code;
                         isCode = true;
                     } else {
-                        throw new Error(netflixTravelCodeResult.errorMessage);
+                        throw new Error(travelResult.errorMessage);
                     }
                 } catch (error) {
                     console.warn('✈️✈️✈️ No se pudo extraer codigo estoy de viaje netflix: ' + error.message)
                 }
             }
 
+            if (!isCode && context.netflixHouseHold) {
+                try {
+                    console.log("🏠🏠🏠 Tratando de guardar household netflix html con fetch")
+                    var resultSaved = await saveNetflixHouseholdHtml(travelResult.link, "./netflix_house.html");
+                    if (resultSaved.noError) {
+                        console.log("html netflix household guardado ✅✅✅, " + resultSaved.savedPath)
+                    } else {
+                        throw new Error(resultSaved.errorMessage);
+                    }
+                } catch (error) {
+                    console.warn('🏠🏠🏠 No se pudo guardar household netflix html con fetch: ' + error.message)
+                }
+            }
+
             if (!isCode) {
 
-                var shortenUrl = await shortUrl(result.link);
+                var shortenUrl = await shortUrl(travelResult.link);
                 console.log(shortenUrl)
                 if (shortenUrl !== null) {
-                    result.link = shortenUrl;
+                    travelResult.link = shortenUrl;
 
                     if (context.netflixLinkTv) {
                         console.log(shortenUrl);
 
-                        result.link = "https://ntv.cuenticas.pro/#" + shortenUrl.split("/").pop();
-                        console.log(result.link);
+                        travelResult.link = "https://ntv.cuenticas.pro/#" + shortenUrl.split("/").pop();
+                        console.log(travelResult.link);
                     }
 
                     if (context.crunchyAprobarLink) {
                         console.log(shortenUrl);
-                        result.link = "https://ac.cuenticas.com/#" + shortenUrl.split("/").pop();
-                        console.log(result.link);
+                        travelResult.link = "https://ac.cuenticas.com/#" + shortenUrl.split("/").pop();
+                        console.log(travelResult.link);
                     }
                 }
 
@@ -252,12 +266,12 @@ async function procesarCorreo(mail) {
                 }
 
                 // 3️⃣ Preparar contenido base (código o link)
-                const isCode = result.code !== undefined;
+                const isCode = travelResult.code !== undefined;
                 const codigoOLink = isCode ? "código" : "link";
-                const contenidoPrincipal = isCode ? result.code : result.link;
+                const contenidoPrincipal = isCode ? travelResult.code : travelResult.link;
 
                 // 4️⃣ Formato del mensaje (texto)
-                const boldAbout = result.about
+                const boldAbout = travelResult.about
                     .split("\n")
                     .map(line => `*${line}*`)
                     .join("\n");
@@ -307,7 +321,7 @@ async function procesarCorreo(mail) {
                 if (recipientEmail) {
                     const mensajeHTML = `
     <div style="font-family:sans-serif">
-        <h2>${result.about}</h2>
+        <h2>${travelResult.about}</h2>
         <p>Para: ${context.to}</p>
         ${context.profileName ? `<p><b>Perfil:</b> ${context.profileName}</p>` : ""}
         <p><b>${codigoOLink.toUpperCase()}:</b> ${contenidoPrincipal}</p>

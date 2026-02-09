@@ -23,6 +23,7 @@ let reconnectDelay = 2000;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const AUTH_FOLDER = "./auth_info";
+const netflixHouseHoldPath = "./netflix_house.html"
 
 // 🔧 Función auxiliar para borrar y reiniciar
 function resetAuthFolder() {
@@ -59,7 +60,21 @@ app.get("/qr", (req, res) => {
   res.send(html);
 });
 
+const fs = require('fs');
+const path = require('path');
 
+app.get("/netflix-house", (req, res) => {
+  // Verificamos si la variable tiene una ruta válida
+  if (fs.existsSync(netflixHouseHoldPath)) {
+
+    // Es buena práctica usar path.resolve para rutas absolutas
+    res.sendFile(path.resolve(netflixHouseHoldPath));
+
+  } else {
+    // Si no existe o la variable no está definida
+    res.status(404).send("No se encontró el archivo");
+  }
+});
 
 app.get("/refresh-functions", async (req, res) => {
   try {
@@ -84,8 +99,8 @@ app.get("/refresh-functions", async (req, res) => {
 
 app.get("/save-session", async (req, res) => {
   try {
-   await uploadFolderZipToGAS();
-   res.status(200).send("Se guardo correctamente la sesion de wa en la nube")
+    await uploadFolderZipToGAS();
+    res.status(200).send("Se guardo correctamente la sesion de wa en la nube")
 
   } catch (err) {
     console.error("Error en /refresh-functions:", err);
@@ -106,7 +121,7 @@ app.post('/send', async (req, res) => {
     }
 
     const resultado = await sendMessage(numero, mensaje);
-    responseObject.waResponse=resultado;
+    responseObject.waResponse = resultado;
 
   } catch (error) {
     responseObject.noError = false;

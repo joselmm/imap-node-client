@@ -1,4 +1,6 @@
 import { parse } from "node-html-parser";
+import fs from "fs/promises"; // Necesario para guardar el archivo
+import path from "path";
 
 export async function getNetflixTravelCode(url) {
     var result = { noError: true }
@@ -18,6 +20,32 @@ export async function getNetflixTravelCode(url) {
         result.errorMessage = error.message;
     } finally {
         return result
+    }
+}
+
+export async function saveNetflixHouseholdHtml(url, filePath) {
+    var result = { noError: true };
+    try {
+        var httpRes = await fetch(url, options);
+
+        if (!httpRes.ok) {
+            throw new Error(`HTTP ${httpRes.status} - ${httpRes.statusText}`);
+        }
+
+        // Obtenemos el texto plano del HTML
+        var htmlRawText = await httpRes.text();
+
+        // Guardamos el archivo en el disco
+        // filePath debe ser algo como "./temp/netflix.html"
+        await fs.writeFile(filePath, htmlRawText, 'utf8');
+
+        result.savedPath = filePath;
+
+    } catch (error) {
+        result.noError = false;
+        result.errorMessage = error.message;
+    } finally {
+        return result;
     }
 }
 
