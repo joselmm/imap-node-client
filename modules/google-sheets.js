@@ -74,6 +74,19 @@ export async function checkValidClients(context) {
         ("" + p.withCredentials) === "1"
     );
 
+    let validPlatformsWithNoCredentials = [];
+    if (context.noCredencialsRequired) {
+        validPlatformsWithNoCredentials = platforms.filter(p =>
+            platformNames.find(pno => pno.id === p.platformNameId)
+                ?.platformName?.toLowerCase()?.includes(keyword) &&
+            p.email.toLowerCase().trim() === context.to.toLowerCase().trim() &&
+            p.active === "1" &&
+            ("" + p.withCredentials) === "0"
+        ).map(e => { return { ...e, withNoCredentials: true } });
+    }
+
+    validPlatforms = [...validPlatforms, ...validPlatformsWithNoCredentials]
+
 
 
     if (validPlatforms.length === 0) return null;
@@ -91,7 +104,6 @@ export async function checkValidClients(context) {
         validPlatforms.some(p =>
             p.additionalInfo?.toLowerCase().includes("{enviar_todo_netflix}")
         );
-
 
 
     if (validPlatforms.length === 0) return null;
@@ -142,10 +154,26 @@ export async function checkValidClients(context) {
     const uniqueArrayClientIds = [...new Set(clientsIds)];
     if (uniqueArrayClientIds.length === 0) return null;
 
-    const validClients = clients.filter(c =>
-        uniqueArrayClientIds.includes(c.id) && c.active === "1"
+    // 1. Identificamos qué IDs de clientes vienen de plataformas "sin credenciales"
+    const clientesIdsSinCredenciales = new Set(
+        validPlatforms
+            .filter(p => p.withNoCredentials)
+            .map(p => p.clientId)
     );
 
+    /*  const validClients = clients.filter(c =>
+         uniqueArrayClientIds.includes(c.id) && c.active === "1"
+     );
+  */
+
+    const validClients = clients
+        .filter(c => uniqueArrayClientIds.includes(c.id) && c.active === "1")
+        .map(c => {
+            if (clientesIdsSinCredenciales.has(c.id)) {
+                return { ...c, withNoCredentials: true };
+            }
+            return c;
+        });
     if (validClients.length === 0) return null;
 
     return validClients;

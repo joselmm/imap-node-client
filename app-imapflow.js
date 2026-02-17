@@ -183,6 +183,7 @@ async function procesarCorreo(mail) {
     if (result.noError) {
         var validClients = await checkValidClients(context);
         if (context.fraud && validClients) {
+
             await desactivateClients(validClients);
             return;
         }
@@ -197,6 +198,10 @@ async function procesarCorreo(mail) {
                     if (travelResult.noError) {
                         delete result.link;
                         result.code = travelResult.code;
+                        if (result.ifIsCodeAbout) {
+                            result.about = result.ifIsCodeAbout;
+                            delete result.ifIsCodeAbout;
+                        }
                         isCode = true;
                     } else {
                         throw new Error(travelResult.errorMessage);
@@ -206,24 +211,10 @@ async function procesarCorreo(mail) {
                 }
             }
 
-            if (!isCode && context.netflixHouseHold) {
-                try {
-                    console.log("🏠🏠🏠 Tratando de guardar household netflix html con fetch")
-                    var resultSaved = await saveNetflixHouseholdHtml(result.link, "./netflix_house.html");
-                    if (resultSaved.noError) {
-                        console.log("html netflix household guardado ✅✅✅, " + resultSaved.savedPath)
-                    } else {
-                        throw new Error(resultSaved.errorMessage);
-                    }
-                } catch (error) {
-                    console.warn('🏠🏠🏠 No se pudo guardar household netflix html con fetch: ' + error.message)
-                }
-            }
-
             if (!isCode) {
 
                 var shortenUrl = await shortUrl(result.link);
-                console.log(shortenUrl)
+                //  console.log(shortenUrl)
                 if (shortenUrl !== null) {
                     result.link = shortenUrl;
 
@@ -276,9 +267,13 @@ async function procesarCorreo(mail) {
                     .map(line => `*${line}*`)
                     .join("\n");
 
-                const mensajeWhatsApp = `${boldAbout}\n(${context.to})` +
-                    (context.profileName ? `\n*Perfil:* ${context.profileName}` : "") +
-                    `\n👇👇👇`;
+                /*  const mensajeWhatsApp = `${boldAbout}\n(${context.to})` +
+                     (context.profileName ? `\n*Perfil:* ${context.profileName}` : "") +
+                     `\n👇👇👇`; */
+                const mensajeWhatsApp = `${boldAbout}\n` +
+                    (!client.withNoCredentials ? `(${context.to})\n` : "") +
+                    (context.profileName ? `*Perfil:* ${context.profileName}\n` : "") +
+                    `👇👇👇`;
 
                 const mensajeExtra =
                     `☝️☝️☝️\n\n` +
@@ -289,7 +284,7 @@ async function procesarCorreo(mail) {
                         : ""
                     ) +
                     (context.profileName
-                        ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como “*${context.profileName}*”, tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄`
+                        ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como "${context.profileName}*", tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄`
                         : ""
                     );
 
