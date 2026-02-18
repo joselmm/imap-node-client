@@ -1,4 +1,4 @@
-import makeWASocket, { useMultiFileAuthState, Browsers, DisconnectReason } from "@whiskeysockets/baileys";
+import makeWASocket, { useMultiFileAuthState, Browsers, DisconnectReason } from "baileys";
 import QRCode from "qrcode";
 import express from "express";
 import cors from "cors";
@@ -238,21 +238,51 @@ export async function connectToWhatsApp() {
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     const msg = messages[0];
-
-    // 1. SEGURIDAD: Si no hay mensaje, o el mensaje lo envié YO (el bot), ignorar.
     if (!msg.message || msg.key.fromMe) return;
 
-    const remoteJid = msg.key.remoteJid;
-    console.log("remoteJid: "+remoteJid)
+    // --- SOLUCIÓN BASADA EN GITHUB ISSUE #2013 ---
+
+    // 1. Verificamos si existe el campo 'remoteJidAlt' que contiene el número de teléfono.
+    // Si el 'remoteJid' principal es un @lid, el 'remoteJidAlt' debería ser el @s.whatsapp.net
+    let jidReal = msg.key.remoteJid;
+
+    if (jidReal.includes('@lid') && msg.key.remoteJidAlt) {
+      jidReal = msg.key.remoteJidAlt;
+      console.log("🔄 LID detectado. Cambiando al número real (Alt):", jidReal);
+    }
+
+    // 2. Limpiar el JID (quitar el :4 o :1 si hay multidispositivo)
+    const remoteJid = jidReal.split(':')[0].split('@')[0] + '@s.whatsapp.net';
+
+
+    console.log("Log del remoteJid final:", remoteJid);
+
+
+    // --- NUEVA VALIDACIÓN: Si sigue siendo LID, enviar "No disponible" ---
+    if (remoteJid.includes('@lid')) {
+      console.log("🚫 No se pudo obtener el PN (Número Real). Abortando.");
+
+      // Solo respondemos si el usuario intentó usar el comando para no saturar
+      const tempText = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+      if (tempText.toLowerCase().startsWith("consultar:")) {
+        await sock.sendMessage(msg.key.remoteJid, {
+          text: "❌ *Servicio no disponible*\n\nTu número de teléfono está oculto por los ajustes de privacidad de WhatsApp y no podemos validar tu cuenta. Por favor, asegúrate de tener tu número visible o agrégame a tus contactos."
+        });
+      }
+      return;
+    }
+
     
+    // Ahora pasas este 'remoteJid' a tu función de limpieza
+
     // 2. FILTRO: Solo responder en chats individuales (opcional, pero recomendado)
     // Si quieres que funcione en grupos, quita la siguiente línea:
     if (remoteJid.endsWith('@g.us')) return;
-    
+
     // Extraer texto
     const messageContent = msg.message.conversation ||
-    msg.message.extendedTextMessage?.text ||
-    "";
+      msg.message.extendedTextMessage?.text ||
+      "";
 
     // 3. COMANDO: "consultar:correo"
     if (messageContent.toLowerCase().startsWith("consultar:")) {
@@ -260,7 +290,7 @@ export async function connectToWhatsApp() {
 
       if (!email || !email.includes("@")) {
         await sock.sendMessage(remoteJid, {
-          text: "⚠️ Formato inválido. Usa: *consultar:correo@gmail.com*"
+          text: "⚠️ *Formato incorrecto*\n\nUsa: `consultar:correo@ejemplo.com`"
         });
         return;
       }
