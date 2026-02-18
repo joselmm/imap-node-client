@@ -33,7 +33,7 @@ export async function shortUrl(url) {
         });
         // console.log(response)
         var text = await response.text();
-        fs.writeFileSync("./short.txt", text)
+        //fs.writeFileSync("./short.txt", text)
 
         //console.log(text)
         var match = text.match(/"https:\/\/is.gd\/[^"]+"/g);

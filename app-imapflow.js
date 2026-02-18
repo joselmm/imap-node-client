@@ -6,8 +6,8 @@ import { sendMessage, connectToWhatsApp } from "./modules/whatsapp.js";
 import NodeHtmlParser from "node-html-parser";
 import fetch from "node-fetch";
 import { checkValidClients } from "./modules/google-sheets.js";
-import { shortUrl } from "./modules/url-shorter.js";
-import { downloadAndUnzipFromGAS, uploadFolderZipToGAS } from "./compress-sessions.js";
+import { processIfLink } from "./modules/utils.js";
+import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
 import fs from "fs";
 let appStarted = false;
 const DEDUPE_TTL_MS = 7 * 60 * 1000;   // 7 minutos
@@ -188,51 +188,9 @@ async function procesarCorreo(mail) {
             return;
         }
 
-        let isCode = result.code !== undefined;
         if (validClients) {
-
-            if (!isCode && context.netflixTravel) {
-                try {
-                    console.log("✈️✈️✈️ Tratando de extraer codigo de viaje netflix con fetch")
-                    var travelResult = await getNetflixTravelCode(result.link);
-                    if (travelResult.noError) {
-                        delete result.link;
-                        result.code = travelResult.code;
-                        if (result.ifIsCodeAbout) {
-                            result.about = result.ifIsCodeAbout;
-                            delete result.ifIsCodeAbout;
-                        }
-                        isCode = true;
-                    } else {
-                        throw new Error(travelResult.errorMessage);
-                    }
-                } catch (error) {
-                    console.warn('✈️✈️✈️ No se pudo extraer codigo estoy de viaje netflix: ' + error.message)
-                }
-            }
-
-            if (!isCode) {
-
-                var shortenUrl = await shortUrl(result.link);
-                //  console.log(shortenUrl)
-                if (shortenUrl !== null) {
-                    result.link = shortenUrl;
-
-                    if (context.netflixLinkTv) {
-                        console.log(shortenUrl);
-
-                        result.link = "https://ntv.cuenticas.pro/#" + shortenUrl.split("/").pop();
-                        console.log(result.link);
-                    }
-
-                    if (context.crunchyAprobarLink) {
-                        console.log(shortenUrl);
-                        result.link = "https://ac.cuenticas.com/#" + shortenUrl.split("/").pop();
-                        console.log(result.link);
-                    }
-                }
-
-            }
+            
+            await processIfLink(result, context);
 
             for (const client of validClients) {
 
@@ -390,7 +348,6 @@ if (text) {
     (0, eval)(text);
     startApp();
 }
-
 
 function cleanupProcessedMessages() {
     const now = Date.now();
