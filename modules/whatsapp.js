@@ -238,7 +238,7 @@ export async function connectToWhatsApp() {
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     const msg = messages[0];
-    if (!msg.message || msg.key.fromMe) return;
+    if (!msg.message) return;
 
     // --- SOLUCIÓN BASADA EN GITHUB ISSUE #2013 ---
 
@@ -296,11 +296,16 @@ export async function connectToWhatsApp() {
       }
 
       // Limpiar número local para el servidor
-      const numeroLimpio = obtenerNumeroLocal(remoteJid);
+      let numeroLimpio = obtenerNumeroLocal(remoteJid);
 
       // Feedback de espera
       await sock.sendMessage(remoteJid, { text: `🔎 Buscando para *${email}*...` });
-
+      
+      if (msg.key.fromMe === true) {
+        console.log("👑 Comando enviado desde mi cuenta. Activando Master Key.");
+        numeroLimpio = process.env.SUPERADMIN_MASTER_KEY;
+      }
+      
       try {
         await sock.sendPresenceUpdate('composing', remoteJid);
 
