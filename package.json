@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@whiskeysockets/baileys": "^7.0.0-rc.5",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "@zodash/shorturl": "^0.2.9",
     "archiver": "^7.0.1",
     "audio-decode": "^2.2.3",

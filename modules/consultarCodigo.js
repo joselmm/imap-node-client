@@ -29,7 +29,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
  * @returns {Promise<Object>} { noError, errorMessage, code, link, about }
  */
 export async function consultarCodigo(email, contact, isRetry = false) {
-    const urlGas = "https://script.google.com/macros/s/AKfycbzVyJR7ZGvVLp9B-AHbPE0nP2O9Ej4_bYrew7dP2klGMKBS1Ko0dFmIHL6MAWaAEOkPBA/exec";
+    const urlGas = process.env.CONSULTAR_CODES_URL;
 
     try {
         const response = await fetch(urlGas, {

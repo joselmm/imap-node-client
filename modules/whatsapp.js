@@ -243,15 +243,16 @@ export async function connectToWhatsApp() {
     if (!msg.message || msg.key.fromMe) return;
 
     const remoteJid = msg.key.remoteJid;
-
+    console.log("remoteJid: "+remoteJid)
+    
     // 2. FILTRO: Solo responder en chats individuales (opcional, pero recomendado)
     // Si quieres que funcione en grupos, quita la siguiente línea:
     if (remoteJid.endsWith('@g.us')) return;
-
+    
     // Extraer texto
     const messageContent = msg.message.conversation ||
-      msg.message.extendedTextMessage?.text ||
-      "";
+    msg.message.extendedTextMessage?.text ||
+    "";
 
     // 3. COMANDO: "consultar:correo"
     if (messageContent.toLowerCase().startsWith("consultar:")) {
