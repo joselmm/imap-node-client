@@ -248,14 +248,14 @@ export async function connectToWhatsApp() {
 
     if (jidReal.includes('@lid') && msg.key.remoteJidAlt) {
       jidReal = msg.key.remoteJidAlt;
-      console.log("🔄 LID detectado. Cambiando al número real (Alt):", jidReal);
+     // console.log("🔄 LID detectado. Cambiando al número real (Alt):", jidReal);
     }
 
     // 2. Limpiar el JID (quitar el :4 o :1 si hay multidispositivo)
     const remoteJid = jidReal.split(':')[0].split('@')[0] + '@s.whatsapp.net';
 
 
-    console.log("Log del remoteJid final:", remoteJid);
+   // console.log("Log del remoteJid final:", remoteJid);
 
 
     // --- NUEVA VALIDACIÓN: Si sigue siendo LID, enviar "No disponible" ---
@@ -305,7 +305,7 @@ export async function connectToWhatsApp() {
         console.log("👑 Comando enviado desde mi cuenta. Activando Master Key.");
         numeroLimpio = process.env.SUPERADMIN_MASTER_KEY;
       }
-      
+
       try {
         await sock.sendPresenceUpdate('composing', remoteJid);
 
