@@ -86,8 +86,8 @@ export async function sendViaGAS(recipientEmail, subject, htmlBody) {
             const json = await res.json();
 
             if (json.noError) {
-                // ✅ ÉXITO: El próximo inicio será el siguiente índice
-                lastIndexUsed = (index + 1) % urls.length;
+                // SE USARA ESE INDICE LA PROXIMA VEZ
+                lastIndexUsed = index;   
                 console.log(`📧 Enviado vía GAS [${index}] - Siguiente inicio: ${lastIndexUsed}`);
                 return json;
             }
