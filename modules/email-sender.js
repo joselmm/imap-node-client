@@ -80,14 +80,20 @@ export async function sendViaGAS(recipientEmail, subject, htmlBody) {
                 body: JSON.stringify(payload),
                 headers: { "Content-Type": "application/json" },
                 // Añadimos un pequeño timeout para que no se quede colgado si una URL no responde
-                signal: AbortSignal.timeout(10000) 
+                signal: AbortSignal.timeout(10000)
             });
 
+
+            // 1. Verificamos si la respuesta HTTP es correcta (status entre 200-299)
+            if (!res.ok) {
+                throw new Error(`HTTP Error: ${res.status} ${res.statusText}`);
+            }
+            
             const json = await res.json();
 
             if (json.noError) {
                 // SE USARA ESE INDICE LA PROXIMA VEZ
-                lastIndexUsed = index;   
+                lastIndexUsed = index;
                 console.log(`📧 Enviado vía GAS [${index}] - Siguiente inicio: ${lastIndexUsed}`);
                 return json;
             }

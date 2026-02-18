@@ -5,6 +5,7 @@ import cors from "cors";
 import fs from "fs";
 import path from "path";
 import { uploadFolderZipToGAS } from "../compress-sessions.js";
+import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
 
 const port = process.env.PORT || 3000;
 const app = express();
@@ -231,6 +232,69 @@ export async function connectToWhatsApp() {
       } else {
         // Si no debe reconectar, igual resetea
         resetAuthFolder();
+      }
+    }
+  });
+
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    const msg = messages[0];
+
+    // 1. SEGURIDAD: Si no hay mensaje, o el mensaje lo envié YO (el bot), ignorar.
+    if (!msg.message || msg.key.fromMe) return;
+
+    const remoteJid = msg.key.remoteJid;
+
+    // 2. FILTRO: Solo responder en chats individuales (opcional, pero recomendado)
+    // Si quieres que funcione en grupos, quita la siguiente línea:
+    if (remoteJid.endsWith('@g.us')) return;
+
+    // Extraer texto
+    const messageContent = msg.message.conversation ||
+      msg.message.extendedTextMessage?.text ||
+      "";
+
+    // 3. COMANDO: "consultar:correo"
+    if (messageContent.toLowerCase().startsWith("consultar:")) {
+      const email = messageContent.split(":")[1]?.trim();
+
+      if (!email || !email.includes("@")) {
+        await sock.sendMessage(remoteJid, {
+          text: "⚠️ Formato inválido. Usa: *consultar:correo@gmail.com*"
+        });
+        return;
+      }
+
+      // Limpiar número local para el servidor
+      const numeroLimpio = obtenerNumeroLocal(remoteJid);
+
+      // Feedback de espera
+      await sock.sendMessage(remoteJid, { text: `🔎 Buscando para *${email}*...` });
+
+      try {
+        await sock.sendPresenceUpdate('composing', remoteJid);
+
+        const resultado = await consultarCodigo(email, numeroLimpio);
+
+        // Al recibir respuesta:
+        await sock.sendPresenceUpdate('paused', remoteJid);
+        // Llamada a la función lógica con reintento (asegúrate de tenerla definida)
+
+        let respuesta = "";
+        if (resultado.noError) {
+          respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
+            `${resultado.about}\n` +
+            (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n` : "") +
+            (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n` : "") +
+            `\n_Cuenticas.com_`;
+        } else {
+          respuesta = `❌ *ERROR*\n\n⚠️ ${resultado.errorMessage}`;
+        }
+
+        await sock.sendMessage(remoteJid, { text: respuesta });
+
+      } catch (error) {
+        console.error("Error en el comando:", error);
+        await sock.sendMessage(remoteJid, { text: "🤯 Error interno. Intenta más tarde." });
       }
     }
   });
