@@ -313,9 +313,10 @@ export async function connectToWhatsApp() {
         let respuesta = "";
         if (resultado.noError) {
           respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
-            `${resultado.about}\n` +
+            `*Servicio:* ${resultado.about}\n` +
             (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n` : "") +
             (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n` : "") +
+            (resultado.estimatedTimeAgo ? `\n🕒 *Recibido:* _${resultado.estimatedTimeAgo}_ \n` : "") +
             `\n_Cuenticas.com_`;
         } else {
           respuesta = `❌ *ERROR*\n\n⚠️ ${resultado.errorMessage}`;

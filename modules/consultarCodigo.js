@@ -47,43 +47,45 @@ export async function consultarCodigo(email, contact, isRetry = false) {
                 errorMessage: null,
                 code: data.code || null,
                 link: data.link || null,
-                about: data.about || null
+                about: data.about || null,
+                // Agregamos el tiempo estimado que viene de GAS
+                estimatedTimeAgo: data.estimatedTimeAgo || null 
             };
         } 
         
         // 2️⃣ CASO DE FALLO LÓGICO: GAS respondió, pero no encontró nada
         else {
             if (!isRetry) {
-                // Reintento: Esperamos 5 segundos y volvemos a llamar a la función
                 console.log(`⏳ No se encontró código para ${email}. Reintentando en 5s...`);
                 await delay(5000); 
                 return await consultarCodigo(email, contact, true);
             } else {
-                // Si ya reintentó y volvió a fallar, devolvemos el error tal cual lo tenías en Toastify
                 return {
                     noError: false,
                     errorMessage: data.message || "Ocurrió un error",
                     code: null,
                     link: null,
-                    about: null
+                    about: null,
+                    // También lo incluimos aquí por si GAS envía info de tiempo en fallos
+                    estimatedTimeAgo: data.estimatedTimeAgo || null 
                 };
             }
         }
 
     } catch (err) {
-        // 3️⃣ CASO DE ERROR DE CONEXIÓN: Falló el fetch (timeout, red, etc)
+        // 3️⃣ CASO DE ERROR DE CONEXIÓN
         if (!isRetry) {
             console.log(`⏳ Error de red al consultar ${email}. Reintentando en 5s...`);
             await delay(5000);
             return await consultarCodigo(email, contact, true);
         } else {
-            // Si ya reintentó y falló la conexión, devolvemos el error de tu Toastify del catch
             return {
                 noError: false,
                 errorMessage: "Error de conexión. Intenta más tarde.",
                 code: null,
                 link: null,
-                about: null
+                about: null,
+                estimatedTimeAgo: null
             };
         }
     }
