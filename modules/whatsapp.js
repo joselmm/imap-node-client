@@ -1,4 +1,4 @@
-import makeWASocket, { useMultiFileAuthState, Browsers, DisconnectReason } from "baileys";
+import makeWASocket, { useMultiFileAuthState, Browsers, DisconnectReason } from "@whiskeysockets/baileys";
 import QRCode from "qrcode";
 import express from "express";
 import cors from "cors";
@@ -272,7 +272,7 @@ export async function connectToWhatsApp() {
       return;
     }
 
-    
+
     // Ahora pasas este 'remoteJid' a tu función de limpieza
 
     // 2. FILTRO: Solo responder en chats individuales (opcional, pero recomendado)
