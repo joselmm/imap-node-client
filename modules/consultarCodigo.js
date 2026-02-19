@@ -34,7 +34,7 @@ export async function consultarCodigo(email, contact, isRetry = false) {
     try {
         const response = await fetch(urlGas, {
             method: "POST",
-            body: JSON.stringify({ emailToCheck: email, contact }),
+            body: JSON.stringify({ emailToCheck: email, contact, wa:true }),
             headers: { "Content-Type": "application/json" }
         });
 
