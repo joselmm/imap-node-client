@@ -311,7 +311,8 @@ export async function connectToWhatsApp() {
             (resultado.profileName ? `\n👤 *Perfil:* ${resultado.profileName}\n` : "") +
             (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + // <--- Doble \n antes y después
             (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + // <--- Doble \n antes y después
-            `${process.env.ADMIN_DOMAIN || ""}`;
+            (resultado.estimatedTimeAgo ? `🕒 *Recibido:* ${resultado.estimatedTimeAgo}\n` : "");
+
 
         } else {
           // 📝 FORMATO LARGO (Para consultar:)
