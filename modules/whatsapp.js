@@ -309,7 +309,8 @@ export async function connectToWhatsApp() {
           respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
             `*Servicio:* ${resultado.about}\n` +
             (resultado.profileName ? `👤 *Perfil:* ${resultado.profileName}\n` : "") +
-            `\n🔑 *Código:* \`${resultado.code}\`\n\n` + // <--- Doble \n antes y después
+            (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + // <--- Doble \n antes y después
+            (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + // <--- Doble \n antes y después
             `${process.env.ADMIN_DOMAIN || ""}`;
 
         } else {
@@ -323,7 +324,7 @@ export async function connectToWhatsApp() {
             `\n${process.env.ADMIN_DOMAIN || ""}`;
         }
       } else {
-        respuesta = `❌ *ERROR*\n\n⚠️ ${resultado.errorMessage}`;
+        respuesta = `❌ *ERROR*\n\n⚠️ ${resultado.message}`;
       }
 
       await sock.sendMessage(jid, { text: respuesta });

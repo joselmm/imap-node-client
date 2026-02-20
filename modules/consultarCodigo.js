@@ -42,15 +42,7 @@ export async function consultarCodigo(email, contact, isRetry = false) {
 
         // 1️⃣ CASO DE ÉXITO: Encontró el código/link
         if (data.noError) {
-            return {
-                noError: true,
-                errorMessage: null,
-                code: data.code || null,
-                link: data.link || null,
-                about: data.about || null,
-                // Agregamos el tiempo estimado que viene de GAS
-                estimatedTimeAgo: data.estimatedTimeAgo || null 
-            };
+            return data;
         } 
         
         // 2️⃣ CASO DE FALLO LÓGICO: GAS respondió, pero no encontró nada
@@ -60,15 +52,7 @@ export async function consultarCodigo(email, contact, isRetry = false) {
                 await delay(5000); 
                 return await consultarCodigo(email, contact, true);
             } else {
-                return {
-                    noError: false,
-                    errorMessage: data.message || "Ocurrió un error",
-                    code: null,
-                    link: null,
-                    about: null,
-                    // También lo incluimos aquí por si GAS envía info de tiempo en fallos
-                    estimatedTimeAgo: data.estimatedTimeAgo || null 
-                };
+                return data;
             }
         }
 
@@ -81,7 +65,7 @@ export async function consultarCodigo(email, contact, isRetry = false) {
         } else {
             return {
                 noError: false,
-                errorMessage: "Error de conexión. Intenta más tarde.",
+                message: "Error de conexión. Intenta más tarde.",
                 code: null,
                 link: null,
                 about: null,
