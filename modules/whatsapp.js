@@ -16,6 +16,8 @@ app.use(express.json());
 let qrCodeBase64 = "";
 let pairingCode = "";
 let sock = null;
+let codeModoAdmin = false;
+let emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
 
 let lastTimeConected = null;
 let backupTimer = null;
@@ -236,7 +238,9 @@ export async function connectToWhatsApp() {
     }
   });
 
-  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+  /* sock.ev.on('messages.upsert', async ({ messages, type }) => {
+
+    let emailAdmin = "";
     const msg = messages[0];
     if (!msg.message) return;
 
@@ -248,14 +252,14 @@ export async function connectToWhatsApp() {
 
     if (jidReal.includes('@lid') && msg.key.remoteJidAlt) {
       jidReal = msg.key.remoteJidAlt;
-     // console.log("🔄 LID detectado. Cambiando al número real (Alt):", jidReal);
+      // console.log("🔄 LID detectado. Cambiando al número real (Alt):", jidReal);
     }
 
     // 2. Limpiar el JID (quitar el :4 o :1 si hay multidispositivo)
     const remoteJid = jidReal.split(':')[0].split('@')[0] + '@s.whatsapp.net';
 
 
-   // console.log("Log del remoteJid final:", remoteJid);
+    // console.log("Log del remoteJid final:", remoteJid);
 
 
     // --- NUEVA VALIDACIÓN: Si sigue siendo LID, enviar "No disponible" ---
@@ -284,11 +288,31 @@ export async function connectToWhatsApp() {
       msg.message.extendedTextMessage?.text ||
       "";
 
-    // 3. COMANDO: "consultar:correo"
-    if (messageContent.toLowerCase().startsWith("consultar:")) {
-      const email = messageContent.split(":")[1]?.trim();
+    if (codeModoAdmin && msg.key.fromMe && emailRegex.test(messageContent.toLowerCase().trim())) {
+      emailAdmin = messageContent.toLowerCase().trim();
+    }
 
-      if (!email || !email.includes("@")) {
+    if (messageContent.toLowerCase() === "/admin_mode" && msg.key.fromMe) {
+      codeModoAdmin = true;
+      await sock.sendMessage(remoteJid, {
+        text: "MODO ADMIN CONSULTAR CODIGOS ACTIVADO"
+      });
+      return
+    }
+
+    if (messageContent.toLowerCase() === "//admin_mode" && msg.key.fromMe) {
+      codeModoAdmin = false;
+      await sock.sendMessage(remoteJid, {
+        text: "MODO ADMIN CONSULTAR CODIGOS DESACTIVADO"
+      });
+      return
+    }
+
+    // 3. COMANDO: "consultar:correo"
+    if (emailAdmin || messageContent.toLowerCase().startsWith("consultar:")) {
+      let email = emailAdmin || messageContent.split(":")[1]?.trim();
+
+      if (!emailRegex.test(email)) {
         await sock.sendMessage(remoteJid, {
           text: "⚠️ *Formato incorrecto*\n\nUsa: `consultar:correo@ejemplo.com`"
         });
@@ -300,7 +324,7 @@ export async function connectToWhatsApp() {
 
       // Feedback de espera
       await sock.sendMessage(remoteJid, { text: `🔎 Buscando para *${email}*...` });
-      
+
       if (msg.key.fromMe === true) {
         console.log("👑 Comando enviado desde mi cuenta. Activando Master Key.");
         numeroLimpio = process.env.SUPERADMIN_MASTER_KEY;
@@ -334,7 +358,75 @@ export async function connectToWhatsApp() {
         await sock.sendMessage(remoteJid, { text: "🤯 Error interno. Intenta más tarde." });
       }
     }
+  }); */
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    const msg = messages[0];
+    if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
+
+    // 1. IDENTIFICACIÓN (Limpieza de JID)
+    let jidReal = msg.key.remoteJid;
+    if (jidReal.includes('@lid') && msg.key.remoteJidAlt) {
+      jidReal = msg.key.remoteJidAlt;
+    }
+    const remoteJid = jidReal.split(':')[0].split('@')[0] + '@s.whatsapp.net';
+    const remoteJid = jidReal.split(':')[0].split('@')[0] + '@s.whatsapp.net';
+
+    // VARIABLE CLAVE: ¿Es el dueño del bot?
+    const isMe = msg.key.fromMe;
+
+    // Extraer texto limpio
+    const messageContent = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim();
+    const messageLower = messageContent.toLowerCase();
+
+    // --- BLOQUE 1: SOLO PARA EL DUEÑO (ADMIN) ---
+    if (isMe) {
+      // Control del interruptor global (opcional)
+      if (messageLower === "/admin_mode") {
+        global.modoAdminCode = true;
+        return await sock.sendMessage(remoteJid, { text: "👑 MODO ADMIN: ACTIVADO" });
+      }
+      if (messageLower === "//admin_mode") {
+        global.modoAdminCode = false;
+        return await sock.sendMessage(remoteJid, { text: "🔒 MODO ADMIN: DESACTIVADO" });
+      }
+
+      // Si tú envías UN CORREO DIRECTO (sin el "consultar:") y el modo está activo
+      if (global.modoAdminCode && emailRegex.test(messageLower)) {
+        return ejecutarConsulta(messageLower, process.env.SUPERADMIN_MASTER_KEY, remoteJid);
+      }
+    }
+
+    // --- BLOQUE 2: PARA TODOS (USUARIOS Y ADMIN) ---
+    if (messageLower.startsWith("consultar:")) {
+      const email = messageContent.split(":")[1]?.trim();
+
+      if (!emailRegex.test(email)) {
+        return await sock.sendMessage(remoteJid, { text: "⚠️ Formato: `consultar:correo@ejemplo.com`" });
+      }
+
+      // Definir qué llave usar
+      // Si lo escribes TÚ, usa Master Key. Si es OTRO, usa su número de teléfono.
+      const llave = isMe ? process.env.SUPERADMIN_MASTER_KEY : obtenerNumeroLocal(remoteJid);
+
+      return ejecutarConsulta(email, llave, remoteJid);
+    }
   });
+
+  // --- FUNCIÓN DE CONSULTA (Para no repetir código) ---
+  async function ejecutarConsulta(email, identificador, jid) {
+    try {
+      await sock.sendMessage(jid, { text: `🔎 Buscando para *${email}*...` });
+      const resultado = await consultarCodigo(email, identificador);
+
+      let respuesta = resultado.noError
+        ? `✅ *CONSULTA EXITOSA*\n\n*Servicio:* ${resultado.about}\n🔑 *Código:* \`${resultado.code}\`\n_Cuenticas.com_`
+        : `❌ *ERROR*\n\n⚠️ ${resultado.errorMessage}`;
+
+      await sock.sendMessage(jid, { text: respuesta });
+    } catch (e) {
+      await sock.sendMessage(jid, { text: "🤯 Error en el servidor." });
+    }
+  }
 }
 
 
