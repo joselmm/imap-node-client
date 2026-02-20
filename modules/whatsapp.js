@@ -238,127 +238,7 @@ export async function connectToWhatsApp() {
     }
   });
 
-  /* sock.ev.on('messages.upsert', async ({ messages, type }) => {
-
-    let emailAdmin = "";
-    const msg = messages[0];
-    if (!msg.message) return;
-
-    // --- SOLUCIÓN BASADA EN GITHUB ISSUE #2013 ---
-
-    // 1. Verificamos si existe el campo 'remoteJidAlt' que contiene el número de teléfono.
-    // Si el 'remoteJid' principal es un @lid, el 'remoteJidAlt' debería ser el @s.whatsapp.net
-    let jidReal = msg.key.remoteJid;
-
-    if (jidReal.includes('@lid') && msg.key.remoteJidAlt) {
-      jidReal = msg.key.remoteJidAlt;
-      // console.log("🔄 LID detectado. Cambiando al número real (Alt):", jidReal);
-    }
-
-    // 2. Limpiar el JID (quitar el :4 o :1 si hay multidispositivo)
-    const remoteJid = jidReal.split(':')[0].split('@')[0] + '@s.whatsapp.net';
-
-
-    // console.log("Log del remoteJid final:", remoteJid);
-
-
-    // --- NUEVA VALIDACIÓN: Si sigue siendo LID, enviar "No disponible" ---
-    if (remoteJid.includes('@lid')) {
-      console.log("🚫 No se pudo obtener el PN (Número Real). Abortando.");
-
-      // Solo respondemos si el usuario intentó usar el comando para no saturar
-      const tempText = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
-      if (tempText.toLowerCase().startsWith("consultar:")) {
-        await sock.sendMessage(msg.key.remoteJid, {
-          text: "❌ *Servicio no disponible*\n\nTu número de teléfono está oculto por los ajustes de privacidad de WhatsApp y no podemos validar tu cuenta. Por favor, asegúrate de tener tu número visible o agrégame a tus contactos."
-        });
-      }
-      return;
-    }
-
-
-    // Ahora pasas este 'remoteJid' a tu función de limpieza
-
-    // 2. FILTRO: Solo responder en chats individuales (opcional, pero recomendado)
-    // Si quieres que funcione en grupos, quita la siguiente línea:
-    if (remoteJid.endsWith('@g.us')) return;
-
-    // Extraer texto
-    const messageContent = msg.message.conversation ||
-      msg.message.extendedTextMessage?.text ||
-      "";
-
-    if (codeModoAdmin && msg.key.fromMe && emailRegex.test(messageContent.toLowerCase().trim())) {
-      emailAdmin = messageContent.toLowerCase().trim();
-    }
-
-    if (messageContent.toLowerCase() === "/admin_mode" && msg.key.fromMe) {
-      codeModoAdmin = true;
-      await sock.sendMessage(remoteJid, {
-        text: "MODO ADMIN CONSULTAR CODIGOS ACTIVADO"
-      });
-      return
-    }
-
-    if (messageContent.toLowerCase() === "//admin_mode" && msg.key.fromMe) {
-      codeModoAdmin = false;
-      await sock.sendMessage(remoteJid, {
-        text: "MODO ADMIN CONSULTAR CODIGOS DESACTIVADO"
-      });
-      return
-    }
-
-    // 3. COMANDO: "consultar:correo"
-    if (emailAdmin || messageContent.toLowerCase().startsWith("consultar:")) {
-      let email = emailAdmin || messageContent.split(":")[1]?.trim();
-
-      if (!emailRegex.test(email)) {
-        await sock.sendMessage(remoteJid, {
-          text: "⚠️ *Formato incorrecto*\n\nUsa: `consultar:correo@ejemplo.com`"
-        });
-        return;
-      }
-
-      // Limpiar número local para el servidor
-      let numeroLimpio = obtenerNumeroLocal(remoteJid);
-
-      // Feedback de espera
-      await sock.sendMessage(remoteJid, { text: `🔎 Buscando para *${email}*...` });
-
-      if (msg.key.fromMe === true) {
-        console.log("👑 Comando enviado desde mi cuenta. Activando Master Key.");
-        numeroLimpio = process.env.SUPERADMIN_MASTER_KEY;
-      }
-
-      try {
-        await sock.sendPresenceUpdate('composing', remoteJid);
-
-        const resultado = await consultarCodigo(email, numeroLimpio);
-
-        // Al recibir respuesta:
-        await sock.sendPresenceUpdate('paused', remoteJid);
-        // Llamada a la función lógica con reintento (asegúrate de tenerla definida)
-
-        let respuesta = "";
-        if (resultado.noError) {
-          respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
-            `*Servicio:* ${resultado.about}\n` +
-            (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n` : "") +
-            (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n` : "") +
-            (resultado.estimatedTimeAgo ? `\n🕒 *Recibido:* _${resultado.estimatedTimeAgo}_ \n` : "") +
-            `\n_Cuenticas.com_`;
-        } else {
-          respuesta = `❌ *ERROR*\n\n⚠️ ${resultado.errorMessage}`;
-        }
-
-        await sock.sendMessage(remoteJid, { text: respuesta });
-
-      } catch (error) {
-        console.error("Error en el comando:", error);
-        await sock.sendMessage(remoteJid, { text: "🤯 Error interno. Intenta más tarde." });
-      }
-    }
-  }); */
+  
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
@@ -368,7 +248,6 @@ export async function connectToWhatsApp() {
     if (jidReal.includes('@lid') && msg.key.remoteJidAlt) {
       jidReal = msg.key.remoteJidAlt;
     }
-    const remoteJid = jidReal.split(':')[0].split('@')[0] + '@s.whatsapp.net';
     const remoteJid = jidReal.split(':')[0].split('@')[0] + '@s.whatsapp.net';
 
     // VARIABLE CLAVE: ¿Es el dueño del bot?
