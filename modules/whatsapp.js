@@ -308,7 +308,7 @@ export async function connectToWhatsApp() {
           // ⚡ FORMATO CORTO (Solo para ti)
           respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
             `*Servicio:* ${resultado.about}\n` +
-            (resultado.profileName ? `👤 *Perfil:* ${resultado.profileName}\n` : "") +
+            (resultado.profileName ? `\n👤 *Perfil:* ${resultado.profileName}\n` : "") +
             (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + // <--- Doble \n antes y después
             (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + // <--- Doble \n antes y después
             `${process.env.ADMIN_DOMAIN || ""}`;
@@ -317,7 +317,7 @@ export async function connectToWhatsApp() {
           // 📝 FORMATO LARGO (Para consultar:)
           respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
             `*Servicio:* ${resultado.about}\n` +
-            (resultado.profileName ? `👤 *Perfil:* ${resultado.profileName}\n` : "") +
+            (resultado.profileName ? `\n👤 *Perfil:* ${resultado.profileName}\n` : "") +
             (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + // <--- Doble \n antes y después
             (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + // <--- Doble \n antes y después
             (resultado.estimatedTimeAgo ? `🕒 *Recibido:* ${resultado.estimatedTimeAgo}\n` : "") +
