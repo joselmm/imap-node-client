@@ -238,7 +238,7 @@ export async function connectToWhatsApp() {
     }
   });
 
-  
+
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
@@ -271,7 +271,7 @@ export async function connectToWhatsApp() {
 
       // Si tú envías UN CORREO DIRECTO (sin el "consultar:") y el modo está activo
       if (global.modoAdminCode && emailRegex.test(messageLower)) {
-        return ejecutarConsulta(messageLower, process.env.SUPERADMIN_MASTER_KEY, remoteJid);
+        return ejecutarConsulta(messageLower, process.env.SUPERADMIN_MASTER_KEY, remoteJid, true);
       }
     }
 
@@ -287,22 +287,48 @@ export async function connectToWhatsApp() {
       // Si lo escribes TÚ, usa Master Key. Si es OTRO, usa su número de teléfono.
       const llave = isMe ? process.env.SUPERADMIN_MASTER_KEY : obtenerNumeroLocal(remoteJid);
 
-      return ejecutarConsulta(email, llave, remoteJid);
+      return ejecutarConsulta(email, llave, remoteJid, false);
     }
   });
 
   // --- FUNCIÓN DE CONSULTA (Para no repetir código) ---
-  async function ejecutarConsulta(email, identificador, jid) {
+  async function ejecutarConsulta(email, identificador, jid, esModoAdminDirecto) {
+    if (!sock) return;
     try {
       await sock.sendMessage(jid, { text: `🔎 Buscando para *${email}*...` });
-      const resultado = await consultarCodigo(email, identificador);
 
-      let respuesta = resultado.noError
-        ? `✅ *CONSULTA EXITOSA*\n\n*Servicio:* ${resultado.about}\n🔑 *Código:* \`${resultado.code}\`\n_Cuenticas.com_`
-        : `❌ *ERROR*\n\n⚠️ ${resultado.errorMessage}`;
+      await sock.sendPresenceUpdate('composing', jid);
+      const resultado = await consultarCodigo(email, identificador);
+      await sock.sendPresenceUpdate('paused', jid);
+
+      let respuesta = "";
+
+      if (resultado.noError) {
+        if (esModoAdminDirecto) {
+          // ⚡ FORMATO CORTO (Solo para ti)
+          respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
+            `*Servicio:* ${resultado.about}\n` +
+            (resultado.profileName ? `👤 *Perfil:* ${resultado.profileName}\n` : "") +
+            `\n\n🔑 *Código:* \`${resultado.code}\`\n\n` + // <--- Doble \n antes y después
+            `${process.env.ADMIN_DOMAIN || ""}`;
+
+        } else {
+          // 📝 FORMATO LARGO (Para consultar:)
+          respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
+            `*Servicio:* ${resultado.about}\n` +
+            (resultado.profileName ? `👤 *Perfil:* ${resultado.profileName}\n` : "") +
+            (resultado.code ? `\n\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + // <--- Doble \n antes y después
+            (resultado.link ? `\n\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + // <--- Doble \n antes y después
+            (resultado.estimatedTimeAgo ? `🕒 *Recibido:* ${resultado.estimatedTimeAgo}\n` : "") +
+            `\n${process.env.ADMIN_DOMAIN || ""}`;
+        }
+      } else {
+        respuesta = `❌ *ERROR*\n\n⚠️ ${resultado.errorMessage}`;
+      }
 
       await sock.sendMessage(jid, { text: respuesta });
     } catch (e) {
+      console.error("Error en consulta:", e);
       await sock.sendMessage(jid, { text: "🤯 Error en el servidor." });
     }
   }
