@@ -309,7 +309,7 @@ export async function connectToWhatsApp() {
           respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
             `*Servicio:* ${resultado.about}\n` +
             (resultado.profileName ? `👤 *Perfil:* ${resultado.profileName}\n` : "") +
-            `\n\n🔑 *Código:* \`${resultado.code}\`\n\n` + // <--- Doble \n antes y después
+            `\n🔑 *Código:* \`${resultado.code}\`\n\n` + // <--- Doble \n antes y después
             `${process.env.ADMIN_DOMAIN || ""}`;
 
         } else {
@@ -317,8 +317,8 @@ export async function connectToWhatsApp() {
           respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
             `*Servicio:* ${resultado.about}\n` +
             (resultado.profileName ? `👤 *Perfil:* ${resultado.profileName}\n` : "") +
-            (resultado.code ? `\n\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + // <--- Doble \n antes y después
-            (resultado.link ? `\n\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + // <--- Doble \n antes y después
+            (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + // <--- Doble \n antes y después
+            (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + // <--- Doble \n antes y después
             (resultado.estimatedTimeAgo ? `🕒 *Recibido:* ${resultado.estimatedTimeAgo}\n` : "") +
             `\n${process.env.ADMIN_DOMAIN || ""}`;
         }
