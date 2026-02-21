@@ -66,11 +66,13 @@ export function generatePassword(message) {
 }
 
 function generarPin(n) {
-    let pin = "";
+    let pool = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    let resultado = "";
     for (let i = 0; i < n; i++) {
-        pin += Math.floor(Math.random() * 10);
+        let idx = Math.floor(Math.random()* pool.length);
+        resultado += pool.splice(idx, 1)[0]; 
     }
-    return pin;
+    return resultado;
 }
 
 function obtenerItemAleatorio(lista) {
