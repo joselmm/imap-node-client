@@ -1,5 +1,5 @@
-import {getNetflixTravelCode} from "./netflix-utils.js"
-import {shortUrl} from "./url-shorter.js"
+import { getNetflixTravelCode } from "./netflix-utils.js"
+import { shortUrl } from "./url-shorter.js"
 export async function processIfLink(result, context) {
     let isCode = result.code !== undefined;
     if (!isCode && context.netflixTravel) {
@@ -44,4 +44,37 @@ export async function processIfLink(result, context) {
         }
 
     }
+}
+
+var cmdRegex = /^\/pass\d*$/;
+var numberRegex = /\d+$/;
+export function generatePassword(message) {
+    try {
+        if (!cmdRegex.test(message)) throw new Error("Formato incorrecto, usa /pass o /pass(Numero De Digitos)")
+        var nameList = JSON.parse(process.env.NAME_LIST);
+        if (numberRegex.test(message)) {
+            var number = parseInt(message.match(numberRegex)[0]);
+            if(number>10) throw new Error("Numero muy grande, maximo 10  digitos")
+            return (obtenerItemAleatorio(nameList) + generarPin(number));
+        }
+        
+        return (obtenerItemAleatorio(nameList) + generarPin(4));
+
+    } catch (e) {
+        return "Error: " + e.message;
+    }
+}
+
+function generarPin(n) {
+    let pin = "";
+    for (let i = 0; i < n; i++) {
+        pin += Math.floor(Math.random() * 10);
+    }
+    return pin;
+}
+
+function obtenerItemAleatorio(lista) {
+    if (!lista || lista.length === 0) return "User"; // Valor por defecto si falla la lista
+    const indiceAleatorio = Math.floor(Math.random() * lista.length);
+    return lista[indiceAleatorio];
 }

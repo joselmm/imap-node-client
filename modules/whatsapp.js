@@ -6,7 +6,7 @@ import fs from "fs";
 import path from "path";
 import { uploadFolderZipToGAS } from "../compress-sessions.js";
 import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
-
+import { generatePassword } from "./utils.js"
 const port = process.env.PORT || 3000;
 const app = express();
 app.use(cors());
@@ -259,11 +259,16 @@ export async function connectToWhatsApp() {
 
     // --- BLOQUE 1: SOLO PARA EL DUEÑO (ADMIN) ---
     if (isMe) {
+      if (messageLower.startsWith("/pass")) {
+        return await sock.sendMessage(remoteJid, { text: generatePassword(messageLower) });
+      }
+
       // Control del interruptor global (opcional)
       if (messageLower === "/admin_mode") {
         global.modoAdminCode = true;
         return await sock.sendMessage(remoteJid, { text: "👑 MODO ADMIN: ACTIVADO" });
       }
+
       if (messageLower === "//admin_mode") {
         global.modoAdminCode = false;
         return await sock.sendMessage(remoteJid, { text: "🔒 MODO ADMIN: DESACTIVADO" });
@@ -273,6 +278,7 @@ export async function connectToWhatsApp() {
       if (global.modoAdminCode && emailRegex.test(messageLower)) {
         return ejecutarConsulta(messageLower, process.env.SUPERADMIN_MASTER_KEY, remoteJid, true);
       }
+
     }
 
     // --- BLOQUE 2: PARA TODOS (USUARIOS Y ADMIN) ---
