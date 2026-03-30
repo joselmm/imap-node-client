@@ -3,20 +3,26 @@ import fs from "node:fs"
 
 export async function shortUrl(url) {
     try {
-        // Usamos la URL de tu subdominio con SSL
-        // El endpoint que creamos es GET /short?url=...
         const baseUrl = "https://a.cuenticas.com"; 
-        const response = await fetch(`${baseUrl}/short?url=${encodeURIComponent(url)}`);
+        
+        // Configuramos la petición como POST
+        const response = await fetch(`${baseUrl}/short`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url: url }) // Enviamos la URL en el cuerpo
+        });
 
         if (!response.ok) {
+            console.error("Error en la respuesta del servidor:", response.status);
             return null;
         }
 
         const data = await response.json();
 
-        // Verificamos el booleano noError que implementamos en el servidor
         if (data.noError) {
-            console.log("resultado de mi acortador: " + data.shortUrl);
+            console.log("Resultado de mi acortador: " + data.shortUrl);
             return data.shortUrl;
         }
 
