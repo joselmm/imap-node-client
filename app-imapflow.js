@@ -242,7 +242,7 @@ async function procesarCorreo(mail) {
                         : ""
                     ) +
                     (context.profileName
-                        ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como "${context.profileName}*", tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄`
+                        ? `\nℹ️ *Recuerda:* Si dejas el nombre del perfil como "*${context.profileName}*", tus ${codigoOLink}s llegarán sin problema. ¡Así de fácil! 😄`
                         : ""
                     );
 
