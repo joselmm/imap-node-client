@@ -23,6 +23,7 @@ let imapReconnectAttempts = 0;
 const MAX_IMAP_RECONNECT_ATTEMPTS = 3;
 const neverWaFlag = "(NeverWa)";
 const noWaFlag = "(NoWa)";
+const deadFlag = "(Never)";
 
 
 
@@ -282,6 +283,13 @@ async function procesarCorreo(mail) {
 
                 const noWhatsApp = typeof client.name === "string" && client.name.includes(noWaFlag);
                 const neverWhatsapp = typeof client.name === "string" && client.name.includes(neverWaFlag);
+                const isDead = typeof client.name === "string" && client.name.includes(deadFlag);
+
+                if (isDead) {
+                    console.log(`⛔ Cliente totalmente bloqueado: ${client.name}`);
+                    continue;
+                }
+
                 // 1️⃣ Preparar número con prefijo (para WhatsApp)
                 let numeroConPrefijo = null;
                 if (client.prefix && client.contact) {
