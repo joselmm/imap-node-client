@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 config();
-import { client, handleShutdown } from "./modules/email-listener-imapflow.js";
+import * as imapModule from "./modules/email-listener-imapflow.js";
 import { simpleParser } from "mailparser";
 import { sendMessage, connectToWhatsApp } from "./modules/whatsapp.js";
 import NodeHtmlParser from "node-html-parser";
@@ -9,12 +9,18 @@ import { checkValidClients } from "./modules/google-sheets.js";
 import { processIfLink } from "./modules/utils.js";
 import { downloadAndUnzipFromGAS } from "./compress-sessions.js";
 import fs from "fs";
+
 let appStarted = false;
+let imapConnecting = null;
+let imapReconnectTimer = null;
 const DEDUPE_TTL_MS = 7 * 60 * 1000;   // 7 minutos
 const CLEANUP_TTL_MS = 10 * 60 * 1000; // 10 minutos (siempre mayor al dedupe)
 const PROCESS_WINDOW_SEC = 7 * 60; // 7 minutos
+const IMAP_RECONNECT_MIN_DELAY_MS = 5000;
 const PROCESSED_LABEL = 'ProcessedByBot';
 var stopFailOver = false;
+let imapReconnectAttempts = 0;
+const MAX_IMAP_RECONNECT_ATTEMPTS = 3;
 const neverWaFlag = "(NeverWa)";
 const noWaFlag = "(NoWa)";
 
@@ -33,6 +39,162 @@ const processedMessages = new Map();
 
 
 globalThis.NodeHtmlParser = NodeHtmlParser;
+function isImapUsable(mailClient = imapModule.client) {
+    return Boolean(mailClient && mailClient.usable && !mailClient.isClosed);
+}
+
+function isImapConnectionError(err) {
+    const message = err?.message || "";
+    return err?.code === "NoConnection"
+        || err?.code === "EConnectionClosed"
+        || /Connection (not available|closed)/i.test(message);
+}
+
+function scheduleImapReconnect(reason = "conexion no disponible") {
+    if (imapReconnectTimer) return;
+
+    console.warn("IMAP no disponible (" + reason + "). Reintentando en " + Math.round(IMAP_RECONNECT_MIN_DELAY_MS / 1000) + "s...");
+    imapReconnectTimer = setTimeout(() => {
+        imapReconnectTimer = null;
+        ensureImapConnection("reconexion programada").catch(async err => {
+            console.error("No se pudo reconectar IMAP:", err?.message || err);
+
+            imapReconnectAttempts++;
+
+            if (imapReconnectAttempts >= MAX_IMAP_RECONNECT_ATTEMPTS) {
+                console.error("❌ Demasiados fallos IMAP. Cerrando app...");
+
+                await imapModule.handleShutdown("demasiados fallos IMAP", {
+                    exit: true
+                });
+
+                return;
+            }
+
+            scheduleImapReconnect(err?.message || "fallo reconectando");
+        });
+    }, IMAP_RECONNECT_MIN_DELAY_MS);
+}
+
+function attachImapHandlers(mailClient) {
+    mailClient.removeAllListeners("exists");
+    mailClient.removeAllListeners("close");
+    mailClient.removeAllListeners("error");
+
+    mailClient.on("exists", () => {
+        handleNewMailExists(mailClient).catch(err => {
+            console.error("❌ procesar exists error:", err?.message || err);
+            if (isImapConnectionError(err)) {
+                scheduleImapReconnect(err.message);
+            }
+        });
+    });
+
+    mailClient.on("error", err => {
+        console.error("❌ IMAP error:", err?.message || err);
+        if (isImapConnectionError(err)) {
+            scheduleImapReconnect(err.message);
+        }
+    });
+
+    mailClient.on("close", () => {
+        if (mailClient !== imapModule.client) return;
+
+        console.error("❌ IMAP connection closed");
+
+        scheduleImapReconnect("conexion cerrada");
+    });
+}
+
+async function handleNewMailExists(mailClient) {
+    if (mailClient !== imapModule.client || !isImapUsable(mailClient)) return;
+
+    let lock;
+    try {
+        lock = await mailClient.getMailboxLock("INBOX");
+        const seq = mailClient.mailbox.exists;
+        if (!seq) return;
+
+        let message;
+        try {
+            message = await mailClient.fetchOne(seq, { source: true });
+        } catch (err) {
+            console.error("❌ Fetch error:", err.message);
+            if (isImapConnectionError(err)) scheduleImapReconnect(err.message);
+            return;
+        }
+
+        let parsed;
+        try {
+            parsed = await simpleParser(message.source);
+        } catch (err) {
+            console.error("❌ Parse error:", err.message);
+            return;
+        }
+
+        const uid = message.uid;
+        const rawMid = parsed.messageId || `${uid}-${parsed.date?.getTime()}`;
+        const key = normalizeMessageId(rawMid) || rawMid;
+
+        if (processedMessages.has(key)) {
+            console.log("⏭️ exists ignorado (ya procesado):", parsed.subject);
+            return;
+        }
+
+        processedMessages.set(key, Date.now());
+
+        console.log("📩 Correo NUEVO (exists):", parsed.subject);
+        console.log("para:", parsed.to?.text || "(sin destinatario)");
+
+        procesarCorreo(parsed).catch(err => console.error("❌ procesarCorreo (exists) error:", err));
+    } finally {
+        if (lock) lock.release();
+    }
+}
+
+async function ensureImapConnection(reason = "verificacion") {
+    if (isImapUsable()) return imapModule.client;
+    if (imapConnecting) return imapConnecting;
+
+    imapConnecting = (async () => {
+        if (imapReconnectTimer) {
+            clearTimeout(imapReconnectTimer);
+            imapReconnectTimer = null;
+        }
+
+        let mailClient = imapModule.client;
+
+
+        if (mailClient && !mailClient.isClosed) {
+            try {
+                await mailClient.logout();
+            } catch { }
+        }
+
+        mailClient = imapModule.resetImapClient();
+
+        attachImapHandlers(mailClient)
+        console.log("Conectando IMAP (" + reason + ")...");
+
+        try {
+            await mailClient.connect();
+            imapReconnectAttempts = 0;
+            let lock = await mailClient.getMailboxLock('INBOX'); try {
+                console.log("✅ IMAP Conectado y escuchando INBOX...");
+            } finally {
+                lock.release();
+            }
+            return mailClient;
+        } catch (err) {
+            mailClient = imapModule.resetImapClient();
+            throw err;
+        }
+    })().finally(() => {
+        imapConnecting = null;
+    });
+
+    return imapConnecting;
+}
 
 async function startApp() {
     // PARA EVITAR DOBLE EJECUCIONE EN EL MISMO ENTORNO
@@ -56,89 +218,13 @@ async function startApp() {
     connectToWhatsApp();
 
     // --- CONFIGURACIÓN IMAPFLOW ---
-    await client.connect();
-
+    await ensureImapConnection("inicio");
     // Failover cada 30s
     setInterval(failoverCheck, 30_000);
 
     // Limpieza de memoria
     setInterval(cleanupProcessedMessages, 30_000);
 
-
-    // Abrir INBOX
-    let lock = await client.getMailboxLock('INBOX');
-    try {
-        console.log("✅ IMAP Conectado y escuchando INBOX...");
-
-
-        client.on('exists', async () => {
-            const seq = client.mailbox.exists;
-
-            let message;
-            try {
-                message = await client.fetchOne(seq, { source: true });
-            } catch (err) {
-                console.error("❌ Fetch error:", err.message);
-                return;
-            }
-
-            /*   if (message.labels?.includes(PROCESSED_LABEL)) {
-                  console.log("⏭️ Exists ignorado (ya procesado por label)");
-                  return;
-              } */
-
-            const uid = message.uid;
-
-
-
-
-            let parsed;
-            try {
-                parsed = await simpleParser(message.source);
-            } catch (err) {
-                console.error("❌ Parse error:", err.message);
-                return;
-            }
-
-            const rawMid = parsed.messageId || `${uid}-${parsed.date?.getTime()}`;
-            const key = normalizeMessageId(rawMid) || rawMid;
-
-            if (processedMessages.has(key)) {
-                console.log("⏭️ exists ignorado (ya procesado):", parsed.subject);
-                return;
-            }
-
-            processedMessages.set(key, Date.now());
-
-            /* try {
-                await client.messageLabelsAdd(
-                    uid,
-                    [PROCESSED_LABEL],
-                    { uid: true }
-                );
-            } catch (e) {
-                console.error("⚠️ No se pudo marcar Processed:", uid);
-            } */
-            console.log("📩 Correo NUEVO (exists):", parsed.subject);
-            console.log("para:", parsed.to?.text || "(sin destinatario)");
-
-
-            procesarCorreo(parsed).catch(err => console.error("❌ procesarCorreo (exists) error:", err));
-
-        });
-
-
-
-
-
-    } finally {
-        lock.release();
-    }
-
-    // Manejo de desconexión
-    client.on('close', () => {
-        handleShutdown();
-    });
 }
 
 // Tu lógica principal encapsulada
@@ -189,7 +275,7 @@ async function procesarCorreo(mail) {
         }
 
         if (validClients) {
-            
+
             await processIfLink(result, context);
 
             for (const client of validClients) {
@@ -307,7 +393,7 @@ async function procesarCorreo(mail) {
                 // 6️⃣ FALLBACK A WHATSAPP
                 // (aunque tenga NoWa)
                 // ===============================
-                if (noWhatsApp && !emailEnviado && !neverWaFlag) {
+                if (noWhatsApp && !emailEnviado && !neverWhatsapp) {
                     try {
                         await sendMessage(
                             numeroConPrefijo,
@@ -370,6 +456,7 @@ async function failoverCheck() {
     let countProcesados = 0;
 
     try {
+        const client = await ensureImapConnection("failover");
         lock = await client.getMailboxLock('INBOX');
 
         const sinceDate = new Date(Date.now() - DEDUPE_TTL_MS);
@@ -462,6 +549,9 @@ async function failoverCheck() {
 
     } catch (err) {
         console.error("❌ Failover error:", err.message);
+        if (isImapConnectionError(err)) {
+            scheduleImapReconnect(err.message);
+        }
         // ... tu lógica de error y salida ...
     } finally {
         if (lock) lock.release();
