@@ -54,10 +54,10 @@ export function generatePassword(message) {
         var nameList = JSON.parse(process.env.NAME_LIST);
         if (numberRegex.test(message)) {
             var number = parseInt(message.match(numberRegex)[0]);
-            if(number>10) throw new Error("Numero muy grande, maximo 10  digitos")
+            if (number > 10) throw new Error("Numero muy grande, maximo 10  digitos")
             return (obtenerItemAleatorio(nameList) + generarPin(number));
         }
-        
+
         return (obtenerItemAleatorio(nameList) + generarPin(4));
 
     } catch (e) {
@@ -69,8 +69,8 @@ function generarPin(n) {
     let pool = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
     let resultado = "";
     for (let i = 0; i < n; i++) {
-        let idx = Math.floor(Math.random()* pool.length);
-        resultado += pool.splice(idx, 1)[0]; 
+        let idx = Math.floor(Math.random() * pool.length);
+        resultado += pool.splice(idx, 1)[0];
     }
     return resultado;
 }
@@ -79,4 +79,48 @@ function obtenerItemAleatorio(lista) {
     if (!lista || lista.length === 0) return "User"; // Valor por defecto si falla la lista
     const indiceAleatorio = Math.floor(Math.random() * lista.length);
     return lista[indiceAleatorio];
+}
+
+async function procesarCalculo(msg, sock) {
+    const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+    
+    // Captura 'cc' o 'c' en el primer grupo, y la operación en el segundo.
+    // Ojo: 'cc' va antes de 'c' en el regex para que no se confunda.
+    const regex = /(cc|c)\s*\(([^)]+)\)/i;
+    const match = text.match(regex);
+    
+    if (!match) return false;
+
+    const tipoComando = match[1].toLowerCase(); // Puede ser 'c' o 'cc'
+    const operacion = match[2];
+
+    try {
+        // Filtro de seguridad para el eval
+        if (/[^0-9+\-*/(). ]/.test(operacion)) return false;
+
+        // Calculamos con redondeo a 2 decimales
+        let resultado = eval(operacion);
+        resultado = Math.round(resultado * 100) / 100;
+
+        // --- LÓGICA DE DETECCIÓN DE COMANDO ---
+        let textoReemplazo = "";
+        if (tipoComando === "c") {
+            textoReemplazo = `${operacion} = ${resultado}`; // Ej: "1+2 = 3"
+        } else {
+            textoReemplazo = resultado.toString();          // Ej: "3"
+        }
+
+        const jid = msg.key.remoteJid;
+
+        if (msg.key.fromMe) {
+            // Edita tu propio mensaje con el formato elegido
+            await sock.sendMessage(jid, { text: text.replace(regex, textoReemplazo), edit: msg.key });
+        } else {
+            // Si te lo envían, responde con el formato elegido
+            await sock.sendMessage(jid, { text: textoReemplazo });
+        }
+        return true;
+    } catch (e) {
+        return false;
+    }
 }

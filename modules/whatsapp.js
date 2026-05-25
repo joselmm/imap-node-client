@@ -6,7 +6,8 @@ import fs from "fs";
 import path from "path";
 import { uploadFolderZipToGAS } from "../compress-sessions.js";
 import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
-import { generatePassword } from "./utils.js"
+
+import { generatePassword, procesarCalculo } from "./utils.js"
 const port = process.env.PORT || 3000;
 const app = express();
 app.use(cors());
@@ -243,6 +244,10 @@ export async function connectToWhatsApp() {
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
+    
+    // --- NUEVA LÍNEA: Intentar procesar cálculo primero ---
+    if (await procesarCalculo(msg, sock)) return; 
+    // -----------------------------------------------------
 
     // 1. IDENTIFICACIÓN (Limpieza de JID)
     let jidReal = msg.key.remoteJid;
