@@ -81,14 +81,17 @@ function obtenerItemAleatorio(lista) {
     return lista[indiceAleatorio];
 }
 
+// Función auxiliar para pausar la ejecución
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function procesarCalculo(msg, sock) {
     const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
-    
+
     // Captura 'cc' o 'c' en el primer grupo, y la operación en el segundo.
     // Ojo: 'cc' va antes de 'c' en el regex para que no se confunda.
     const regex = /(cc|c)\s*\(([^)]+)\)/i;
     const match = text.match(regex);
-    
+
     if (!match) return false;
 
     const tipoComando = match[1].toLowerCase(); // Puede ser 'c' o 'cc'
@@ -111,6 +114,11 @@ export async function procesarCalculo(msg, sock) {
         }
 
         const jid = msg.key.remoteJid;
+        
+        // ⏱️ GENERAR DELAY ALEATORIO ENTRE 500 Y 800 MS
+        // Math.random() * (max - min) + min
+        const tiempoEspera = Math.floor(Math.random() * (800 - 500 + 1)) + 500;
+        await delay(tiempoEspera);
 
         if (msg.key.fromMe) {
             // Edita tu propio mensaje con el formato elegido
