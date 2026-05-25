@@ -81,7 +81,7 @@ function obtenerItemAleatorio(lista) {
     return lista[indiceAleatorio];
 }
 
-async function procesarCalculo(msg, sock) {
+export async function procesarCalculo(msg, sock) {
     const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
     
     // Captura 'cc' o 'c' en el primer grupo, y la operación en el segundo.
