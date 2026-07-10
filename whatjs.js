@@ -87,12 +87,34 @@ export async function sendMessage(numeroConPrefijo, mensaje) {
 app.post('/send', async (req, res) => {
   const { numero, mensaje } = req.body;
 
+  // 1. Validación de campos obligatorios
   if (!numero || !mensaje) {
-    return res.status(400).json({ error: 'Faltan parámetros: numero o mensaje' });
+    return res.status(400).json({ 
+      error: true, 
+      message: 'Faltan parámetros obligatorios: numero o mensaje' 
+    });
   }
 
-  const resultado = await sendMessage(numero, mensaje);
-  res.json(resultado);
+  try {
+    // 2. Intento de envío del mensaje
+    const resultado = await sendMessage(numero, mensaje);
+    
+    // Si todo sale bien, devolvemos la respuesta exitosa
+    res.json({
+      error: false,
+      message: 'Mensaje procesado con éxito',
+      data: resultado // Opcional: por si necesitas los detalles que devuelve la función
+    });
+
+  } catch (err) {
+    // 3. Control de errores inesperados
+    console.error('Error interno en /send:', err); // Para que puedas verlo en tus logs
+    
+    res.json({
+      error: true,
+      message: err.message || 'Ocurrió un error interno al intentar enviar el mensaje'
+    });
+  }
 });
 
 // === ENDPOINT PARA MOSTRAR QR ===
