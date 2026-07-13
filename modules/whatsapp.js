@@ -150,7 +150,7 @@ export async function connectToWhatsApp() {
     printQRInTerminal: false,
     browser: Browsers.windows("Browser"),
     markOnlineOnConnect: false,
-    version: [2, 3000, 1033893291],
+    //version: [2, 3000, 1033893291],
     syncFullHistory: false
   });
 
