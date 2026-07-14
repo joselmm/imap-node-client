@@ -1,4 +1,4 @@
-import makeWASocket, { useMultiFileAuthState, Browsers, DisconnectReason } from "@whiskeysockets/baileys";
+import makeWASocket, { useMultiFileAuthState, Browsers, DisconnectReason, downloadMediaMessage, fetchLatestBaileysVersion } from "@whiskeysockets/baileys";
 import QRCode from "qrcode";
 import express from "express";
 import cors from "cors";
@@ -144,13 +144,14 @@ app.listen(port, () => console.log("📡 Servidor QR en puerto " + port));
 // --- CONEXIÓN A WHATSAPP ---
 export async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
-
+  const { version, isLatest } = await fetchLatestBaileysVersion();
+  console.log(`Usando versión de WA v${version.join('.')}, isLatest: ${isLatest}`);
   sock = makeWASocket({
     auth: state,
     printQRInTerminal: false,
     browser: Browsers.windows("Browser"),
     markOnlineOnConnect: false,
-    //version: [2, 3000, 1033893291],
+    version,
     syncFullHistory: false
   });
 
@@ -244,9 +245,9 @@ export async function connectToWhatsApp() {
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
-    
+
     // --- NUEVA LÍNEA: Intentar procesar cálculo primero ---
-    if (await procesarCalculo(msg, sock)) return; 
+    if (await procesarCalculo(msg, sock)) return;
     // -----------------------------------------------------
 
     // 1. IDENTIFICACIÓN (Limpieza de JID)
