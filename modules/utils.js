@@ -135,7 +135,7 @@ export async function procesarCalculo(msg, sock) {
 
 export async function procesarPago(msg, sock) {
     const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
-    if (!text.toLowerCase().startsWith("/pago")) return false;
+    if (!text.toLowerCase().includes("/pagos")) return false;
 
     const pagoText = process.env.METODOS_DE_PAGO || "Métodos de pago no configurados";
     const jid = msg.key.remoteJid;
@@ -144,7 +144,7 @@ export async function procesarPago(msg, sock) {
     await delay(tiempoEspera);
 
     if (msg.key.fromMe) {
-        await sock.sendMessage(jid, { text: text.replace(/\/pago\s*/i, `${pagoText}`), edit: msg.key });
+        await sock.sendMessage(jid, { text: text.replace(/\/pagos\s*/i, `${pagoText}`), edit: msg.key });
     } else {
         await sock.sendMessage(jid, { text: `💳 *Métodos de pago:*\n\n${pagoText}` });
     }
