@@ -7,7 +7,7 @@ import path from "path";
 import { uploadFolderZipToGAS } from "../compress-sessions.js";
 import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
 
-import { generatePassword, procesarCalculo } from "./utils.js"
+import { generatePassword, procesarCalculo, procesarPago } from "./utils.js"
 const port = process.env.PORT || 3000;
 const app = express();
 app.use(cors());
@@ -248,6 +248,7 @@ export async function connectToWhatsApp() {
 
     // --- NUEVA LÍNEA: Intentar procesar cálculo primero ---
     if (await procesarCalculo(msg, sock)) return;
+    if (await procesarPago(msg, sock)) return;
     // -----------------------------------------------------
 
     // 1. IDENTIFICACIÓN (Limpieza de JID)

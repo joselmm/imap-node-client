@@ -132,3 +132,21 @@ export async function procesarCalculo(msg, sock) {
         return false;
     }
 }
+
+export async function procesarPago(msg, sock) {
+    const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+    if (!text.toLowerCase().startsWith("/pago")) return false;
+
+    const pagoText = process.env.METODOS_DE_PAGO || "Métodos de pago no configurados";
+    const jid = msg.key.remoteJid;
+
+    const tiempoEspera = Math.floor(Math.random() * (800 - 500 + 1)) + 500;
+    await delay(tiempoEspera);
+
+    if (msg.key.fromMe) {
+        await sock.sendMessage(jid, { text: text.replace(/\/pago\s*/i, `${pagoText}`), edit: msg.key });
+    } else {
+        await sock.sendMessage(jid, { text: `💳 *Métodos de pago:*\n\n${pagoText}` });
+    }
+    return true;
+}
