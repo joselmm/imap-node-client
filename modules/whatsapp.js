@@ -305,7 +305,7 @@ export async function connectToWhatsApp() {
       return ejecutarConsulta(email, llave, remoteJid, false);
     }
 
-    if (messageLower.startsWith("asignar:")) {
+    if (messageLower.startsWith("asignar:") || messageLower.startsWith("asignar: ")) {
       const parts = messageContent.split(":");
       const clienteEmail = parts[1]?.trim();
 
@@ -318,7 +318,7 @@ export async function connectToWhatsApp() {
 
       if (!emailRegex.test(clienteEmail) || plataformasEmails.length === 0) {
         return await sock.sendMessage(remoteJid, {
-          text: "⚠️ *Formato:* `asignar:correocliente@ejemplo.com:correoplataforma@ejemplo.com`\n\nPara varias plataformas:\n`asignar:correo@ej.com:correo1@ej.com,correo2@ej.com`\n`asignar:correo@ej.com:correo1@ej.com:correo2@ej.com`"
+          text: "⚠️ *Formato:* `asignar:correocliente@ejemplo.com:correoplataforma@ejemplo.com`\n\nPara varias plataformas:\n`asignar:correo@ej.com:correo1@ej.com,correo2@ej.com`"
         });
       }
 
