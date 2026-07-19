@@ -20,6 +20,8 @@ let pairingCode = "";
 let sock = null;
 let codeModoAdmin = false;
 let emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+const CONTACT_ESPOSA = "3227715717";
+const CONTACT_MARIDO = "3045768265";
 
 let lastTimeConected = null;
 let backupTimer = null;
@@ -29,6 +31,12 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const AUTH_FOLDER = "./auth_info";
 const netflixHouseHoldPath = "./netflix_house.html"
+
+function isAuthorized(remoteJid, rawSenderContact, isMe) {
+  if (isMe) return true;
+  if (rawSenderContact === CONTACT_ESPOSA || rawSenderContact === CONTACT_MARIDO) return true;
+  return !remoteJid.endsWith('@g.us');
+}
 
 // 🔧 Función auxiliar para borrar y reiniciar
 function resetAuthFolder() {
@@ -257,7 +265,13 @@ export async function connectToWhatsApp() {
     if (jidReal.includes('@lid') && msg.key.remoteJidAlt) {
       jidReal = msg.key.remoteJidAlt;
     }
-    const remoteJid = jidReal.split(':')[0].split('@')[0] + '@s.whatsapp.net';
+    const remoteJid = jidReal.split(':')[0];
+
+    // Detectar grupo y obtener remitente real
+    const isGroup = remoteJid.endsWith('@g.us');
+    const senderJid = isGroup ? (msg.key.participant || remoteJid) : remoteJid;
+    const rawSenderContact = obtenerNumeroLocal(senderJid);
+    const senderContact = rawSenderContact === CONTACT_ESPOSA ? CONTACT_MARIDO : rawSenderContact;
 
     // VARIABLE CLAVE: ¿Es el dueño del bot?
     const isMe = msg.key.fromMe;
@@ -292,20 +306,26 @@ export async function connectToWhatsApp() {
 
     // --- BLOQUE 2: PARA TODOS (USUARIOS Y ADMIN) ---
     if (messageLower.startsWith("consultar:")) {
+      if (!isAuthorized(remoteJid, rawSenderContact, isMe)) {
+        return await sock.sendMessage(remoteJid, { text: "❌ Este comando solo está disponible en chats privados." });
+      }
+
       const email = messageContent.split(":")[1]?.trim();
 
       if (!emailRegex.test(email)) {
         return await sock.sendMessage(remoteJid, { text: "⚠️ Formato: `consultar:correo@ejemplo.com`" });
       }
 
-      // Definir qué llave usar
-      // Si lo escribes TÚ, usa Master Key. Si es OTRO, usa su número de teléfono.
-      const llave = isMe ? process.env.SUPERADMIN_MASTER_KEY : obtenerNumeroLocal(remoteJid);
+      const llave = isMe ? process.env.SUPERADMIN_MASTER_KEY : senderContact;
 
       return ejecutarConsulta(email, llave, remoteJid, false);
     }
 
     if (messageLower.startsWith("asignar:") || messageLower.startsWith("asignar: ")) {
+      if (!isAuthorized(remoteJid, rawSenderContact, isMe)) {
+        return await sock.sendMessage(remoteJid, { text: "❌ Este comando solo está disponible en chats privados." });
+      }
+
       const parts = messageContent.split(":");
       const clienteEmail = parts[1]?.trim();
 
@@ -326,7 +346,7 @@ export async function connectToWhatsApp() {
       await sock.sendPresenceUpdate('composing', remoteJid);
 
       try {
-        const resultado = await asignarPlataformas(clienteEmail, plataformasEmails, obtenerNumeroLocal(remoteJid), isMe);
+        const resultado = await asignarPlataformas(clienteEmail, plataformasEmails, senderContact, isMe);
         await sock.sendPresenceUpdate('paused', remoteJid);
 
         let respuesta = "";
