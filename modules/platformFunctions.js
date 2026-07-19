@@ -40,37 +40,48 @@ export async function queryData(sheet, condition) {
   return json;
 }
 
-export async function asignarPlataformas(clienteEmail, plataformasEmails) {
+export async function asignarPlataformas(clienteEmail, plataformasEmails, senderContact, isOwner) {
   const results = {
     asignadas: [],
     yaAsignadas: [],
     noEncontradas: [],
+    inactivas: [],
   };
 
-  const clientResponse = await queryData('clients', `@emailContact@ == '${clienteEmail}'`);
+  let cliente;
+  let clienteId;
+  const senderClientIds = new Set();
 
-  if (!clientResponse.noError || !clientResponse.data || clientResponse.data.length === 0) {
-    return {
-      noError: false,
-      errorMessage: `No se encontró cliente con email: ${clienteEmail}`,
-    };
+  if (isOwner) {
+    const clientResponse = await queryData('clients', `@emailContact@ == '${clienteEmail}'`);
+    if (!clientResponse.noError || !clientResponse.data || clientResponse.data.length === 0) {
+      return { noError: false, errorMessage: `No se encontró cliente con email: ${clienteEmail}` };
+    }
+    cliente = clientResponse.data[0];
+    clienteId = cliente.id;
+  } else {
+    const clientResponse = await queryData('clients', `@contact@ == '${senderContact}'`);
+    if (!clientResponse.noError || !clientResponse.data || clientResponse.data.length === 0) {
+      return { noError: false, errorMessage: `No tienes clientes registrados con este número` };
+    }
+
+    const senderClients = clientResponse.data;
+    senderClients.forEach(c => senderClientIds.add(c.id));
+
+    cliente = senderClients.find(c => c.emailContact === clienteEmail);
+    if (!cliente) {
+      return { noError: false, errorMessage: `El email ${clienteEmail} no pertenece a ninguno de tus clientes` };
+    }
+    clienteId = cliente.id;
   }
 
-  const cliente = clientResponse.data[0];
-  const clienteId = cliente.id;
-
-  // Una sola consulta con condición OR para todas las plataformas
   const condition = plataformasEmails.map(e => `@email@ == '${e}'`).join(' || ');
   const platResponse = await queryData('platforms', condition);
 
   if (!platResponse.noError) {
-    return {
-      noError: false,
-      errorMessage: platResponse.errorMessage || 'Error al consultar plataformas',
-    };
+    return { noError: false, errorMessage: platResponse.errorMessage || 'Error al consultar plataformas' };
   }
 
-  // Procesar en memoria
   const encontradas = platResponse.data || [];
   const emailsEncontrados = new Set(encontradas.map(p => p.email));
   const toUpdate = [];
@@ -83,6 +94,18 @@ export async function asignarPlataformas(clienteEmail, plataformasEmails) {
 
     const plataforma = encontradas.find(p => p.email === email);
 
+    if (plataforma.active === "0") {
+      results.inactivas.push(email);
+      continue;
+    }
+
+    if (!isOwner && plataforma.clientId && !senderClientIds.has(plataforma.clientId)) {
+      return {
+        noError: false,
+        errorMessage: `La plataforma ${email} no te pertenece. Solo puedes reasignar plataformas que estén a tu nombre.`
+      };
+    }
+
     if (plataforma.clientId === clienteId) {
       results.yaAsignadas.push(email);
     } else {
@@ -91,7 +114,6 @@ export async function asignarPlataformas(clienteEmail, plataformasEmails) {
     }
   }
 
-  // Una sola actualización para todas las que cambiaron
   if (toUpdate.length > 0) {
     await updatePlatforms(toUpdate);
   }

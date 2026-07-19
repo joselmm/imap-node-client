@@ -326,7 +326,7 @@ export async function connectToWhatsApp() {
       await sock.sendPresenceUpdate('composing', remoteJid);
 
       try {
-        const resultado = await asignarPlataformas(clienteEmail, plataformasEmails);
+        const resultado = await asignarPlataformas(clienteEmail, plataformasEmails, obtenerNumeroLocal(remoteJid), isMe);
         await sock.sendPresenceUpdate('paused', remoteJid);
 
         let respuesta = "";
@@ -338,6 +338,9 @@ export async function connectToWhatsApp() {
           }
           if (r.yaAsignadas.length > 0) {
             respuesta += `⚠️ *Ya estaban asignadas:* ${r.yaAsignadas.length}\n${r.yaAsignadas.map(e => `• ${e}`).join('\n')}\n\n`;
+          }
+          if (r.inactivas.length > 0) {
+            respuesta += `💤 *Inactivas (saltadas):* ${r.inactivas.length}\n${r.inactivas.map(e => `• ${e}`).join('\n')}\n\n`;
           }
           if (r.noEncontradas.length > 0) {
             respuesta += `❌ *No encontradas:* ${r.noEncontradas.length}\n${r.noEncontradas.map(e => `• ${e}`).join('\n')}\n\n`;
