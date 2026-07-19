@@ -8,6 +8,7 @@ import { uploadFolderZipToGAS } from "../compress-sessions.js";
 import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
 
 import { generatePassword, procesarCalculo, procesarPago } from "./utils.js"
+import { asignarPlataformas } from "./platformFunctions.js"
 const port = process.env.PORT || 3000;
 const app = express();
 app.use(cors());
@@ -302,6 +303,55 @@ export async function connectToWhatsApp() {
       const llave = isMe ? process.env.SUPERADMIN_MASTER_KEY : obtenerNumeroLocal(remoteJid);
 
       return ejecutarConsulta(email, llave, remoteJid, false);
+    }
+
+    if (messageLower.startsWith("asignar:")) {
+      const parts = messageContent.split(":");
+      const clienteEmail = parts[1]?.trim();
+
+      let plataformasEmails = [];
+      if (parts.length === 3) {
+        plataformasEmails = parts[2].split(/[,;\n]+/).map(e => e.trim()).filter(e => e);
+      } else if (parts.length > 3) {
+        plataformasEmails = parts.slice(2).map(e => e.trim()).filter(e => e);
+      }
+
+      if (!emailRegex.test(clienteEmail) || plataformasEmails.length === 0) {
+        return await sock.sendMessage(remoteJid, {
+          text: "⚠️ *Formato:* `asignar:correocliente@ejemplo.com:correoplataforma@ejemplo.com`\n\nPara varias plataformas:\n`asignar:correo@ej.com:correo1@ej.com,correo2@ej.com`\n`asignar:correo@ej.com:correo1@ej.com:correo2@ej.com`"
+        });
+      }
+
+      await sock.sendMessage(remoteJid, { text: `🔄 Asignando plataformas a *${clienteEmail}*...` });
+      await sock.sendPresenceUpdate('composing', remoteJid);
+
+      try {
+        const resultado = await asignarPlataformas(clienteEmail, plataformasEmails);
+        await sock.sendPresenceUpdate('paused', remoteJid);
+
+        let respuesta = "";
+        if (resultado.noError) {
+          const r = resultado.results;
+          respuesta = `✅ *ASIGNACIÓN COMPLETADA*\n\n👤 *Cliente:* ${resultado.clienteEmail}\n\n`;
+          if (r.asignadas.length > 0) {
+            respuesta += `✅ *Asignadas:* ${r.asignadas.length}\n${r.asignadas.map(e => `• ${e}`).join('\n')}\n\n`;
+          }
+          if (r.yaAsignadas.length > 0) {
+            respuesta += `⚠️ *Ya estaban asignadas:* ${r.yaAsignadas.length}\n${r.yaAsignadas.map(e => `• ${e}`).join('\n')}\n\n`;
+          }
+          if (r.noEncontradas.length > 0) {
+            respuesta += `❌ *No encontradas:* ${r.noEncontradas.length}\n${r.noEncontradas.map(e => `• ${e}`).join('\n')}\n\n`;
+          }
+        } else {
+          respuesta = `❌ *ERROR*\n\n⚠️ ${resultado.errorMessage}`;
+        }
+
+        return await sock.sendMessage(remoteJid, { text: respuesta });
+      } catch (e) {
+        await sock.sendPresenceUpdate('paused', remoteJid);
+        console.error("Error en asignar:", e);
+        return await sock.sendMessage(remoteJid, { text: `❌ *ERROR*\n\n⚠️ ${e.message}` });
+      }
     }
   });
 
