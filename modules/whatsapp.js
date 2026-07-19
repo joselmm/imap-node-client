@@ -270,7 +270,7 @@ export async function connectToWhatsApp() {
     // Detectar grupo y obtener remitente real
     const isGroup = remoteJid.endsWith('@g.us');
     const senderJid = isGroup ? (msg.key.participant || remoteJid) : remoteJid;
-    const senderJidClean = senderJid.split(':')[0];
+    const senderJidClean = senderJid.includes(':') ? senderJid.split(':')[0] : senderJid;
     const rawSenderContact = obtenerNumeroLocal(senderJidClean);
     const senderContact = rawSenderContact === CONTACT_ESPOSA ? CONTACT_MARIDO : rawSenderContact;
 
