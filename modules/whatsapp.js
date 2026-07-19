@@ -270,7 +270,8 @@ export async function connectToWhatsApp() {
     // Detectar grupo y obtener remitente real
     const isGroup = remoteJid.endsWith('@g.us');
     const senderJid = isGroup ? (msg.key.participant || remoteJid) : remoteJid;
-    const rawSenderContact = obtenerNumeroLocal(senderJid);
+    const senderJidClean = senderJid.split(':')[0];
+    const rawSenderContact = obtenerNumeroLocal(senderJidClean);
     const senderContact = rawSenderContact === CONTACT_ESPOSA ? CONTACT_MARIDO : rawSenderContact;
 
     // VARIABLE CLAVE: ¿Es el dueño del bot?
@@ -322,10 +323,6 @@ export async function connectToWhatsApp() {
     }
 
     if (messageLower.startsWith("asignar:") || messageLower.startsWith("asignar: ")) {
-      if (!isAuthorized(remoteJid, rawSenderContact, isMe)) {
-        return await sock.sendMessage(remoteJid, { text: "❌ Este comando solo está disponible en chats privados." });
-      }
-
       const parts = messageContent.split(":");
       const clienteEmail = parts[1]?.trim();
 
