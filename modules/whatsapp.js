@@ -308,8 +308,8 @@ export async function connectToWhatsApp() {
       // ── /renovar: Renovar una o varias plataformas por email ──
       if (messageLower.startsWith("/renovar")) {
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const parts = messageContent.split(" ");
-        let emails = (parts.slice(1).join(" ").match(emailRegex) || []);
+        const textAfterCommand = messageContent.slice("/renovar".length).trim();
+        let emails = textAfterCommand.match(emailRegex) || [];
 
         if (emails.length === 0) {
           const quotedMsg = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
