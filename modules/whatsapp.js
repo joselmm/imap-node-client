@@ -351,11 +351,15 @@ export async function connectToWhatsApp() {
           let renovadasCount = 0;
           let errores = [];
 
-          for (const plat of platforms) {
+          for (let i = 0; i < platforms.length; i++) {
+            const plat = platforms[i];
             const platActualizada = allPlatforms.find(p => p.id === plat.id);
 
             if (!platActualizada) {
               errores.push(plat.email);
+              if (i === 0) {
+                await sock.sendMessage(remoteJid, { text: `❌ ${plat.email}\nNo se encontró en la respuesta`, edit: msg.key });
+              }
               continue;
             }
 
@@ -364,14 +368,18 @@ export async function connectToWhatsApp() {
             const platName = platformNames.find(pn => pn.id === platActualizada.platformNameId)?.platformName || platActualizada.email;
             const msg = (client && template) ? remplazarEtiquetas(platActualizada, client, template, 'renewal', platformNames) : '';
 
-            await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada` });
+            if (i === 0) {
+              await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada`, edit: msg.key });
+            } else {
+              await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada` });
+            }
           }
 
           let resumen = `✅ ${renovadasCount} de ${platforms.length} plataforma(s) renovada(s)`;
           if (errores.length > 0) {
             resumen += `\n❌ ${errores.length} error(es): ${errores.join(', ')}`;
           }
-          await sock.sendMessage(remoteJid, { text: resumen, edit: msg.key });
+          await sock.sendMessage(remoteJid, { text: resumen });
 
         } catch (e) {
           console.error("Error en /renovar:", e);
