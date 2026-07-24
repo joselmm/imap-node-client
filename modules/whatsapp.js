@@ -8,7 +8,9 @@ import { uploadFolderZipToGAS } from "../compress-sessions.js";
 import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
 
 import { generatePassword, procesarCalculo, procesarPago } from "./utils.js"
-import { asignarPlataformas } from "./platformFunctions.js"
+import { asignarPlataformas, queryData } from "./platformFunctions.js"
+import { renewPlatform, calculateRenewalDates, renewMultiplePlatforms } from "./renewPlatform.js"
+import { remplazarEtiquetas, fetchPlatformTemplate } from "./waTemplate.js"
 const port = process.env.PORT || 3000;
 const app = express();
 app.use(cors());
@@ -301,6 +303,74 @@ export async function connectToWhatsApp() {
       // Si tú envías UN CORREO DIRECTO (sin el "consultar:") y el modo está activo
       if (global.modoAdminCode && emailRegex.test(messageLower)) {
         return ejecutarConsulta(messageLower, process.env.SUPERADMIN_MASTER_KEY, remoteJid, true);
+      }
+
+      // ── /renovar: Renovar una o varias plataformas por email ──
+      if (messageLower.startsWith("/renovar")) {
+        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+        const parts = messageContent.split(" ");
+        let emails = (parts.slice(1).join(" ").match(emailRegex) || []);
+
+        if (emails.length === 0) {
+          const quotedMsg = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+          if (quotedMsg) {
+            const quotedText = quotedMsg.conversation || quotedMsg.extendedTextMessage?.text || "";
+            emails = quotedText.match(emailRegex) || [];
+          }
+        }
+
+        if (emails.length === 0) {
+          return await sock.sendMessage(remoteJid, {
+            text: "⚠️ Usa: `/renovar email1@correo.com, email2@correo.com`\nO responde a un mensaje que contenga correos con `/renovar`"
+          });
+        }
+
+        const statusKey = (await sock.sendMessage(remoteJid, { text: `🔍 Buscando ${emails.length} plataforma(s)...` })).key;
+
+        try {
+          const condition = emails.map(e => `@email@ == '${e}'`).join(' || ');
+          const allCondition = `@id@ != ''`;
+          const [platRes, platNamesRes, clientsRes] = await Promise.all([
+            queryData('platforms', condition),
+            queryData('platformNames', allCondition),
+            queryData('clients', allCondition),
+          ]);
+
+          if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
+            await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: statusKey });
+            return;
+          }
+
+          const platforms = platRes.data;
+          const platformNames = platNamesRes.data || [];
+          const clients = clientsRes.data || [];
+          const template = await fetchPlatformTemplate();
+
+          await sock.sendMessage(remoteJid, { text: `🔄 Renovando ${platforms.length} plataforma(s)...`, edit: statusKey });
+
+          await renewMultiplePlatforms(platforms);
+
+          for (const plat of platforms) {
+            try {
+              const client = clients.find(c => c.id === plat.clientId);
+              const platName = platformNames.find(pn => pn.id === plat.platformNameId)?.platformName || plat.email;
+
+              if (client && template) {
+                const msg = remplazarEtiquetas(plat, client, template, 'renewal', platformNames);
+                await sock.sendMessage(remoteJid, { text: `✅ *${platName} renovada*\n\n${msg}` });
+              } else {
+                await sock.sendMessage(remoteJid, { text: `✅ *${platName}* renovada (sin cliente o plantilla)` });
+              }
+            } catch (e) {
+              await sock.sendMessage(remoteJid, { text: `❌ *${plat.email}*\n⚠️ Error: ${e.message}` });
+            }
+          }
+
+        } catch (e) {
+          console.error("Error en /renovar:", e);
+          await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: statusKey });
+        }
+        return;
       }
 
     }
