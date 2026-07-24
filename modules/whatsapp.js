@@ -325,7 +325,8 @@ export async function connectToWhatsApp() {
           });
         }
 
-        await new Promise(r => setTimeout(r, 800));
+        const tiempoEspera = Math.floor(Math.random() * (1200 - 600 + 1)) + 600;
+        await new Promise(r => setTimeout(r, tiempoEspera));
         await sock.sendMessage(remoteJid, { text: `🔍 Buscando ${emails.length} plataforma(s)...`, edit: msg.key });
 
         try {
