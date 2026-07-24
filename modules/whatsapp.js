@@ -346,31 +346,37 @@ export async function connectToWhatsApp() {
           const clients = clientsRes.data || [];
           const template = await fetchPlatformTemplate();
 
-          await sock.sendMessage(remoteJid, { text: `🔄 Renovando ${platforms.length} plataforma(s)...`, edit: statusKey });
-
           const allPlatforms = await renewMultiplePlatforms(platforms);
 
-          for (const plat of platforms) {
-            try {
-              const platActualizada = allPlatforms.find(p => p.id === plat.id);
-              if (!platActualizada) {
-                await sock.sendMessage(remoteJid, { text: `❌ *${plat.email}*\n⚠️ No se encontró en la respuesta del servidor` });
-                continue;
-              }
+          let renovadasCount = 0;
 
-              const client = clients.find(c => c.id === platActualizada.clientId);
-              const platName = platformNames.find(pn => pn.id === platActualizada.platformNameId)?.platformName || platActualizada.email;
+          for (let i = 0; i < platforms.length; i++) {
+            const plat = platforms[i];
+            const platActualizada = allPlatforms.find(p => p.id === plat.id);
 
-              if (client && template) {
-                const msg = remplazarEtiquetas(platActualizada, client, template, 'renewal', platformNames);
-                await sock.sendMessage(remoteJid, { text: `✅ *${platName} renovada*\n\n${msg}` });
+            if (!platActualizada) {
+              const errMsg = `❌ ${plat.email}\nNo se encontró en la respuesta del servidor`;
+              if (i === 0) {
+                await sock.sendMessage(remoteJid, { text: errMsg, edit: statusKey });
               } else {
-                await sock.sendMessage(remoteJid, { text: `✅ *${platName}* renovada (sin cliente o plantilla)` });
+                await sock.sendMessage(remoteJid, { text: errMsg });
               }
-            } catch (e) {
-              await sock.sendMessage(remoteJid, { text: `❌ *${plat.email}*\n⚠️ Error: ${e.message}` });
+              continue;
+            }
+
+            renovadasCount++;
+            const client = clients.find(c => c.id === platActualizada.clientId);
+            const platName = platformNames.find(pn => pn.id === platActualizada.platformNameId)?.platformName || platActualizada.email;
+            const msg = (client && template) ? remplazarEtiquetas(platActualizada, client, template, 'renewal', platformNames) : '';
+
+            if (i === 0) {
+              await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada`, edit: statusKey });
+            } else {
+              await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada` });
             }
           }
+
+          await sock.sendMessage(remoteJid, { text: `✅ ${renovadasCount} de ${platforms.length} plataforma(s) renovada(s)` });
 
         } catch (e) {
           console.error("Error en /renovar:", e);
