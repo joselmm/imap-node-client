@@ -371,11 +371,11 @@ export async function connectToWhatsApp() {
           if (errores.length > 0) {
             resumen += `\n❌ ${errores.length} error(es): ${errores.join(', ')}`;
           }
-          await sock.sendMessage(remoteJid, { text: resumen, edit: statusKey });
+          await sock.sendMessage(remoteJid, { text: resumen, edit: msg.key });
 
         } catch (e) {
           console.error("Error en /renovar:", e);
-          await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: statusKey });
+          await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: msg.key });
         }
         return;
       }
