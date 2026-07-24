@@ -325,9 +325,7 @@ export async function connectToWhatsApp() {
           });
         }
 
-        const tiempoEspera = Math.floor(Math.random() * (800 - 500 + 1)) + 500;
-        await new Promise(r => setTimeout(r, tiempoEspera));
-        await sock.sendMessage(remoteJid, { text: `🔍 Buscando ${emails.length} plataforma(s)...`, edit: msg.key });
+        const statusKey = (await sock.sendMessage(remoteJid, { text: `🔍 Buscando ${emails.length} plataforma(s)...` })).key;
 
         try {
           const condition = emails.map(e => `@email@ == '${e}'`).join(' || ');
@@ -339,7 +337,7 @@ export async function connectToWhatsApp() {
           ]);
 
           if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
-            await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: msg.key });
+            await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: statusKey });
             return;
           }
 
@@ -360,7 +358,7 @@ export async function connectToWhatsApp() {
             if (!platActualizada) {
               errores.push(plat.email);
               if (i === 0) {
-                await sock.sendMessage(remoteJid, { text: `❌ ${plat.email}\nNo se encontró en la respuesta`, edit: msg.key });
+                await sock.sendMessage(remoteJid, { text: `❌ ${plat.email}\nNo se encontró en la respuesta`, edit: statusKey });
               }
               continue;
             }
@@ -371,7 +369,7 @@ export async function connectToWhatsApp() {
             const msg = (client && template) ? remplazarEtiquetas(platActualizada, client, template, 'renewal', platformNames) : '';
 
             if (i === 0) {
-              await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada`, edit: msg.key });
+              await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada`, edit: statusKey });
             } else {
               await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada` });
             }
@@ -385,7 +383,7 @@ export async function connectToWhatsApp() {
 
         } catch (e) {
           console.error("Error en /renovar:", e);
-          await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: msg.key });
+          await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: statusKey });
         }
         return;
       }
