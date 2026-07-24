@@ -57,5 +57,6 @@ export async function renewPlatform(platform) {
 
 export async function renewMultiplePlatforms(platforms) {
   const updatedPlatforms = platforms.map(p => calculateRenewalDates(p));
-  return updatePlatforms(updatedPlatforms);
+  const res = await updatePlatforms(updatedPlatforms);
+  return res.data;
 }

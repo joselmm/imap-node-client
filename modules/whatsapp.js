@@ -9,7 +9,7 @@ import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
 
 import { generatePassword, procesarCalculo, procesarPago } from "./utils.js"
 import { asignarPlataformas, queryData } from "./platformFunctions.js"
-import { renewPlatform, calculateRenewalDates, renewMultiplePlatforms } from "./renewPlatform.js"
+import { renewMultiplePlatforms } from "./renewPlatform.js"
 import { remplazarEtiquetas, fetchPlatformTemplate } from "./waTemplate.js"
 const port = process.env.PORT || 3000;
 const app = express();
@@ -348,15 +348,21 @@ export async function connectToWhatsApp() {
 
           await sock.sendMessage(remoteJid, { text: `🔄 Renovando ${platforms.length} plataforma(s)...`, edit: statusKey });
 
-          await renewMultiplePlatforms(platforms);
+          const allPlatforms = await renewMultiplePlatforms(platforms);
 
           for (const plat of platforms) {
             try {
-              const client = clients.find(c => c.id === plat.clientId);
-              const platName = platformNames.find(pn => pn.id === plat.platformNameId)?.platformName || plat.email;
+              const platActualizada = allPlatforms.find(p => p.id === plat.id);
+              if (!platActualizada) {
+                await sock.sendMessage(remoteJid, { text: `❌ *${plat.email}*\n⚠️ No se encontró en la respuesta del servidor` });
+                continue;
+              }
+
+              const client = clients.find(c => c.id === platActualizada.clientId);
+              const platName = platformNames.find(pn => pn.id === platActualizada.platformNameId)?.platformName || platActualizada.email;
 
               if (client && template) {
-                const msg = remplazarEtiquetas(plat, client, template, 'renewal', platformNames);
+                const msg = remplazarEtiquetas(platActualizada, client, template, 'renewal', platformNames);
                 await sock.sendMessage(remoteJid, { text: `✅ *${platName} renovada*\n\n${msg}` });
               } else {
                 await sock.sendMessage(remoteJid, { text: `✅ *${platName}* renovada (sin cliente o plantilla)` });
