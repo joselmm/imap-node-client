@@ -325,7 +325,7 @@ export async function connectToWhatsApp() {
           });
         }
 
-        const statusKey = (await sock.sendMessage(remoteJid, { text: `🔍 Buscando ${emails.length} plataforma(s)...` })).key;
+        await sock.sendMessage(remoteJid, { text: `🔍 Buscando ${emails.length} plataforma(s)...`, edit: msg.key });
 
         try {
           const condition = emails.map(e => `@email@ == '${e}'`).join(' || ');
@@ -337,7 +337,7 @@ export async function connectToWhatsApp() {
           ]);
 
           if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
-            await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: statusKey });
+            await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: msg.key });
             return;
           }
 
