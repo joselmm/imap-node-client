@@ -10,6 +10,7 @@ import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
 import { generatePassword, procesarCalculo, procesarPago } from "./utils.js"
 import { asignarPlataformas, queryData } from "./platformFunctions.js"
 import { renewMultiplePlatforms } from "./renewPlatform.js"
+import PAYMENT_STATUSES from '../../mcuentasedit/src/constants/paymentStatuses.enum.js'
 import { remplazarEtiquetas, fetchPlatformTemplate } from "./waTemplate.js"
 const port = process.env.PORT || 3000;
 const app = express();
@@ -306,9 +307,11 @@ export async function connectToWhatsApp() {
       }
 
       // ── /renovar: Renovar una o varias plataformas por email ──
+      const isRenovarPE = messageLower.startsWith("/renovar:pe");
       if (messageLower.startsWith("/renovar")) {
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const textAfterCommand = messageContent.slice("/renovar".length).trim();
+        const prefix = isRenovarPE ? "/renovar:pe" : "/renovar";
+        const textAfterCommand = messageContent.slice(prefix.length).trim();
         let emails = textAfterCommand.match(emailRegex) || [];
 
         if (emails.length === 0) {
@@ -379,6 +382,9 @@ export async function connectToWhatsApp() {
           const clients = clientsRes.data || [];
           const template = await fetchPlatformTemplate();
 
+          if (isRenovarPE) {
+            platforms = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PENDING }));
+          }
           const allPlatforms = await renewMultiplePlatforms(platforms);
 
           let renovadasCount = 0;

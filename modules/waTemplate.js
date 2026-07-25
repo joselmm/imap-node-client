@@ -142,7 +142,7 @@ export function remplazarEtiquetas(platform, client, template, updateType = null
     });
   }
 
-  return mensaje;
+  return mensaje.trim();
 }
 
 function borrarSentencia(foundOptionalSentence, mensaje) {
