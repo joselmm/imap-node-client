@@ -320,7 +320,7 @@ export async function connectToWhatsApp() {
         }
 
         let clientIdFilter = null;
-        if (emails.length === 0) {
+        if (emails.length > 0) {
           const isGroup = remoteJid.endsWith('@g.us');
           if (!isGroup) {
             const chatNumber = obtenerNumeroLocal(remoteJid);
@@ -334,7 +334,7 @@ export async function connectToWhatsApp() {
           }
         }
 
-        if (emails.length === 0 && !clientIdFilter) {
+        if (emails.length === 0) {
           return await sock.sendMessage(remoteJid, {
             text: "⚠️ Usa: `/renovar email1@correo.com, email2@correo.com`\nO responde a un mensaje que contenga correos con `/renovar`"
           });
@@ -345,14 +345,7 @@ export async function connectToWhatsApp() {
         try {
           let platforms;
 
-          if (clientIdFilter && emails.length === 0) {
-            const platRes = await queryData('platforms', `@clientId@ == '${clientIdFilter}'`);
-            if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
-              await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas para este cliente`, edit: statusKey });
-              return;
-            }
-            platforms = platRes.data;
-          } else if (emails.length > 0) {
+          if (emails.length > 0) {
             const emailCondition = emails.map(e => `@email@ == '${e}'`).join(' || ');
             const platRes = await queryData('platforms', emailCondition);
             if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
