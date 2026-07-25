@@ -384,6 +384,8 @@ export async function connectToWhatsApp() {
           let renovadasCount = 0;
           let errores = [];
 
+          const delay = () => new Promise(r => setTimeout(r, 500 + Math.random() * 1300));
+
           for (let i = 0; i < platforms.length; i++) {
             const plat = platforms[i];
             const platActualizada = allPlatforms.find(p => p.id === plat.id);
@@ -406,8 +408,11 @@ export async function connectToWhatsApp() {
             } else {
               await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada` });
             }
+
+            if (i > 0 && i < platforms.length - 1) await delay();
           }
 
+          await delay();
           let resumen = `✅ ${renovadasCount} de ${platforms.length} plataforma(s) renovada(s)`;
           if (errores.length > 0) {
             resumen += `\n❌ ${errores.length} error(es): ${errores.join(', ')}`;
