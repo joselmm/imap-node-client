@@ -345,16 +345,24 @@ export async function connectToWhatsApp() {
         try {
           let platforms;
 
-          if (emails.length > 0) {
+          if (clientIdsFilter) {
+            const clientCondition = [...clientIdsFilter].map(id => `@clientId@ == '${id}'`).join(' || ');
+            const platRes = await queryData('platforms', clientCondition);
+            if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
+              await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas para este cliente`, edit: statusKey });
+              return;
+            }
+            platforms = emails.length > 0
+              ? platRes.data.filter(p => emails.includes(p.email))
+              : platRes.data;
+          } else {
             const emailCondition = emails.map(e => `@email@ == '${e}'`).join(' || ');
             const platRes = await queryData('platforms', emailCondition);
             if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
               await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: statusKey });
               return;
             }
-            platforms = clientIdsFilter
-              ? platRes.data.filter(p => clientIdsFilter.has(p.clientId))
-              : platRes.data;
+            platforms = platRes.data;
           }
 
           if (!platforms || platforms.length === 0) {
