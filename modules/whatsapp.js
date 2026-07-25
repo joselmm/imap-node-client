@@ -319,7 +319,7 @@ export async function connectToWhatsApp() {
           }
         }
 
-        let clientIdFilter = null;
+        let clientIdsFilter = null;
         if (emails.length > 0) {
           const isGroup = remoteJid.endsWith('@g.us');
           if (!isGroup) {
@@ -328,7 +328,7 @@ export async function connectToWhatsApp() {
             if (chatNumber !== ownerNumber) {
               const clientRes = await queryData('clients', `@contact@ == '${chatNumber}'`);
               if (clientRes.noError && clientRes.data?.length > 0) {
-                clientIdFilter = clientRes.data[0].id;
+                clientIdsFilter = new Set(clientRes.data.map(c => c.id));
               }
             }
           }
@@ -352,8 +352,8 @@ export async function connectToWhatsApp() {
               await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: statusKey });
               return;
             }
-            platforms = clientIdFilter
-              ? platRes.data.filter(p => p.clientId === clientIdFilter)
+            platforms = clientIdsFilter
+              ? platRes.data.filter(p => clientIdsFilter.has(p.clientId))
               : platRes.data;
           }
 
