@@ -319,29 +319,61 @@ export async function connectToWhatsApp() {
           }
         }
 
+        let clientIdFilter = null;
         if (emails.length === 0) {
+          const isGroup = remoteJid.endsWith('@g.us');
+          if (!isGroup) {
+            const chatNumber = obtenerNumeroLocal(remoteJid);
+            const ownerNumber = obtenerNumeroLocal(process.env.WHATSAPP_CONTACT + '@s.whatsapp.net');
+            if (chatNumber !== ownerNumber) {
+              const clientRes = await queryData('clients', `@contact@ == '${chatNumber}'`);
+              if (clientRes.noError && clientRes.data?.length > 0) {
+                clientIdFilter = clientRes.data[0].id;
+              }
+            }
+          }
+        }
+
+        if (emails.length === 0 && !clientIdFilter) {
           return await sock.sendMessage(remoteJid, {
             text: "⚠️ Usa: `/renovar email1@correo.com, email2@correo.com`\nO responde a un mensaje que contenga correos con `/renovar`"
           });
         }
 
-        const statusKey = (await sock.sendMessage(remoteJid, { text: `🔍 Buscando ${emails.length} plataforma(s)...` })).key;
+        const statusKey = (await sock.sendMessage(remoteJid, { text: `🔍 Buscando plataforma(s)...` })).key;
 
         try {
-          const condition = emails.map(e => `@email@ == '${e}'`).join(' || ');
-          const allCondition = `@id@ != ''`;
-          const [platRes, platNamesRes, clientsRes] = await Promise.all([
-            queryData('platforms', condition),
-            queryData('platformNames', allCondition),
-            queryData('clients', allCondition),
-          ]);
+          let platforms;
 
-          if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
-            await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: statusKey });
+          if (clientIdFilter && emails.length === 0) {
+            const platRes = await queryData('platforms', `@clientId@ == '${clientIdFilter}'`);
+            if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
+              await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas para este cliente`, edit: statusKey });
+              return;
+            }
+            platforms = platRes.data;
+          } else if (emails.length > 0) {
+            const emailCondition = emails.map(e => `@email@ == '${e}'`).join(' || ');
+            const platRes = await queryData('platforms', emailCondition);
+            if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
+              await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: statusKey });
+              return;
+            }
+            platforms = clientIdFilter
+              ? platRes.data.filter(p => p.clientId === clientIdFilter)
+              : platRes.data;
+          }
+
+          if (!platforms || platforms.length === 0) {
+            await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas`, edit: statusKey });
             return;
           }
 
-          const platforms = platRes.data;
+          const allCondition = `@id@ != ''`;
+          const [platNamesRes, clientsRes] = await Promise.all([
+            queryData('platformNames', allCondition),
+            queryData('clients', allCondition),
+          ]);
           const platformNames = platNamesRes.data || [];
           const clients = clientsRes.data || [];
           const template = await fetchPlatformTemplate();
