@@ -10,7 +10,7 @@ import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
 import { generatePassword, procesarCalculo, procesarPago } from "./utils.js"
 import { asignarPlataformas, queryData } from "./platformFunctions.js"
 import { renewMultiplePlatforms } from "./renewPlatform.js"
-import PAYMENT_STATUSES from '../../mcuentasedit/src/constants/paymentStatuses.enum.js'
+import PAYMENT_STATUSES from './paymentStatuses.enum.js'
 import { remplazarEtiquetas, fetchPlatformTemplate } from "./waTemplate.js"
 const port = process.env.PORT || 3000;
 const app = express();
