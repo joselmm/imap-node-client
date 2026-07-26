@@ -393,10 +393,9 @@ export async function connectToWhatsApp() {
 
           if (isPagar) {
             const pagadas = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PAID, parcialPayment: 0 }));
-            const res = await updatePlatforms(pagadas);
-            const pagadasCount = res.data ? res.data.filter(p => p).length : 0;
+            await updatePlatforms(pagadas);
             await sock.sendMessage(remoteJid, {
-              text: `✅ *${pagadasCount} de ${platforms.length} plataforma(s) marcada(s) como pagada(s)*`,
+              text: `✅ *${platforms.length} de ${platforms.length} plataforma(s) marcada(s) como pagada(s)*`,
               edit: statusKey
             });
             return;
@@ -404,10 +403,9 @@ export async function connectToWhatsApp() {
 
           if (isPendiente) {
             const pendientes = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PENDING }));
-            const res = await updatePlatforms(pendientes);
-            const pendientesCount = res.data ? res.data.filter(p => p).length : 0;
+            await updatePlatforms(pendientes);
             await sock.sendMessage(remoteJid, {
-              text: `✅ *${pendientesCount} de ${platforms.length} plataforma(s) marcada(s) como pendiente(s)*`,
+              text: `✅ *${platforms.length} de ${platforms.length} plataforma(s) marcada(s) como pendiente(s)*`,
               edit: statusKey
             });
             return;
@@ -422,10 +420,9 @@ export async function connectToWhatsApp() {
               return;
             }
             const parciales = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PARTIALLY_PAID, parcialPayment: parcialAmount }));
-            const res = await updatePlatforms(parciales);
-            const parcialesCount = res.data ? res.data.filter(p => p).length : 0;
+            await updatePlatforms(parciales);
             await sock.sendMessage(remoteJid, {
-              text: `✅ *${parcialesCount} de ${platforms.length} plataforma(s) marcada(s) como pago parcial (abono: ${parcialAmount})*`,
+              text: `✅ *${platforms.length} de ${platforms.length} plataforma(s) marcada(s) como pago parcial (abono: ${parcialAmount})*`,
               edit: statusKey
             });
             return;
