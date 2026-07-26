@@ -8,7 +8,7 @@ import { uploadFolderZipToGAS } from "../compress-sessions.js";
 import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
 
 import { generatePassword, procesarCalculo, procesarPago } from "./utils.js"
-import { asignarPlataformas, queryData } from "./platformFunctions.js"
+import { asignarPlataformas, queryData, updatePlatforms } from "./platformFunctions.js"
 import { renewMultiplePlatforms } from "./renewPlatform.js"
 import PAYMENT_STATUSES from './paymentStatuses.enum.js'
 import { remplazarEtiquetas, fetchPlatformTemplate } from "./waTemplate.js"
@@ -308,9 +308,10 @@ export async function connectToWhatsApp() {
 
       // ── /renovar: Renovar una o varias plataformas por email ──
       const isRenovarPE = messageLower.startsWith("/renovar:pe");
-      if (messageLower.startsWith("/renovar")) {
+      const isPagar = messageLower.startsWith("/pagar");
+      if (messageLower.startsWith("/renovar") || messageLower.startsWith("/pagar")) {
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const prefix = isRenovarPE ? "/renovar:pe" : "/renovar";
+        const prefix = isRenovarPE ? "/renovar:pe" : isPagar ? "/pagar" : "/renovar";
         const textAfterCommand = messageContent.slice(prefix.length).trim();
         let emails = textAfterCommand.match(emailRegex) || [];
 
@@ -338,8 +339,9 @@ export async function connectToWhatsApp() {
         }
 
         if (emails.length === 0) {
+          const cmdName = isPagar ? "/pagar" : "/renovar";
           return await sock.sendMessage(remoteJid, {
-            text: "⚠️ Usa: `/renovar email1@correo.com, email2@correo.com`\nO responde a un mensaje que contenga correos con `/renovar`"
+            text: `⚠️ Usa: \`${cmdName} email1@correo.com, email2@correo.com\`\nO responde a un mensaje que contenga correos con \`${cmdName}\``
           });
         }
 
@@ -381,6 +383,17 @@ export async function connectToWhatsApp() {
           const platformNames = platNamesRes.data || [];
           const clients = clientsRes.data || [];
           const template = await fetchPlatformTemplate();
+
+          if (isPagar) {
+            const pagadas = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PAID }));
+            const res = await updatePlatforms(pagadas);
+            const pagadasCount = res.data ? res.data.filter(p => p).length : 0;
+            await sock.sendMessage(remoteJid, {
+              text: `✅ *${pagadasCount} de ${platforms.length} plataforma(s) marcada(s) como pagada(s)*`,
+              edit: statusKey
+            });
+            return;
+          }
 
           if (isRenovarPE) {
             platforms = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PENDING }));
@@ -426,7 +439,7 @@ export async function connectToWhatsApp() {
           await sock.sendMessage(remoteJid, { text: resumen });
 
         } catch (e) {
-          console.error("Error en /renovar:", e);
+          console.error(`Error en ${isPagar ? '/pagar' : '/renovar'}:`, e);
           await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: statusKey });
         }
         return;
