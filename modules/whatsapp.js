@@ -309,9 +309,10 @@ export async function connectToWhatsApp() {
       // ── /renovar: Renovar una o varias plataformas por email ──
       const isRenovarPE = messageLower.startsWith("/renovar:pe");
       const isPagar = messageLower.startsWith("/pagar");
-      if (messageLower.startsWith("/renovar") || messageLower.startsWith("/pagar")) {
+      const isPendiente = messageLower.startsWith("/pendiente");
+      if (messageLower.startsWith("/renovar") || messageLower.startsWith("/pagar") || messageLower.startsWith("/pendiente")) {
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const prefix = isRenovarPE ? "/renovar:pe" : isPagar ? "/pagar" : "/renovar";
+        const prefix = isRenovarPE ? "/renovar:pe" : isPagar ? "/pagar" : isPendiente ? "/pendiente" : "/renovar";
         const textAfterCommand = messageContent.slice(prefix.length).trim();
         let emails = textAfterCommand.match(emailRegex) || [];
 
@@ -339,7 +340,7 @@ export async function connectToWhatsApp() {
         }
 
         if (emails.length === 0) {
-          const cmdName = isPagar ? "/pagar" : "/renovar";
+          const cmdName = isPagar ? "/pagar" : isPendiente ? "/pendiente" : "/renovar";
           return await sock.sendMessage(remoteJid, {
             text: `⚠️ Usa: \`${cmdName} email1@correo.com, email2@correo.com\`\nO responde a un mensaje que contenga correos con \`${cmdName}\``
           });
@@ -395,6 +396,17 @@ export async function connectToWhatsApp() {
             return;
           }
 
+          if (isPendiente) {
+            const pendientes = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PENDING }));
+            const res = await updatePlatforms(pendientes);
+            const pendientesCount = res.data ? res.data.filter(p => p).length : 0;
+            await sock.sendMessage(remoteJid, {
+              text: `✅ *${pendientesCount} de ${platforms.length} plataforma(s) marcada(s) como pendiente(s)*`,
+              edit: statusKey
+            });
+            return;
+          }
+
           if (isRenovarPE) {
             platforms = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PENDING }));
           }
@@ -439,7 +451,7 @@ export async function connectToWhatsApp() {
           await sock.sendMessage(remoteJid, { text: resumen });
 
         } catch (e) {
-          console.error(`Error en ${isPagar ? '/pagar' : '/renovar'}:`, e);
+          console.error(`Error en ${isPagar ? '/pagar' : isPendiente ? '/pendiente' : '/renovar'}:`, e);
           await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: statusKey });
         }
         return;
