@@ -310,9 +310,15 @@ export async function connectToWhatsApp() {
       const isRenovarPE = messageLower.startsWith("/renovar:pe");
       const isPagar = messageLower.startsWith("/pagar");
       const isPendiente = messageLower.startsWith("/pendiente");
-      if (messageLower.startsWith("/renovar") || messageLower.startsWith("/pagar") || messageLower.startsWith("/pendiente")) {
+      const isParcial = messageLower.startsWith("/parcial:");
+      let parcialAmount = 0;
+      if (isParcial) {
+        const match = messageLower.match(/^\/parcial:(\d+)/);
+        parcialAmount = match ? parseInt(match[1], 10) : 0;
+      }
+      if (messageLower.startsWith("/renovar") || messageLower.startsWith("/pagar") || messageLower.startsWith("/pendiente") || messageLower.startsWith("/parcial:")) {
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const prefix = isRenovarPE ? "/renovar:pe" : isPagar ? "/pagar" : isPendiente ? "/pendiente" : "/renovar";
+        const prefix = isRenovarPE ? "/renovar:pe" : isPagar ? "/pagar" : isPendiente ? "/pendiente" : isParcial ? messageContent.match(/^\/parcial:\d+/)[0] : "/renovar";
         const textAfterCommand = messageContent.slice(prefix.length).trim();
         let emails = textAfterCommand.match(emailRegex) || [];
 
@@ -340,7 +346,7 @@ export async function connectToWhatsApp() {
         }
 
         if (emails.length === 0) {
-          const cmdName = isPagar ? "/pagar" : isPendiente ? "/pendiente" : "/renovar";
+          const cmdName = isPagar ? "/pagar" : isPendiente ? "/pendiente" : isParcial ? "/parcial:VALOR" : "/renovar";
           return await sock.sendMessage(remoteJid, {
             text: `⚠️ Usa: \`${cmdName} email1@correo.com, email2@correo.com\`\nO responde a un mensaje que contenga correos con \`${cmdName}\``
           });
@@ -386,7 +392,7 @@ export async function connectToWhatsApp() {
           const template = await fetchPlatformTemplate();
 
           if (isPagar) {
-            const pagadas = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PAID }));
+            const pagadas = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PAID, parcialPayment: 0 }));
             const res = await updatePlatforms(pagadas);
             const pagadasCount = res.data ? res.data.filter(p => p).length : 0;
             await sock.sendMessage(remoteJid, {
@@ -402,6 +408,24 @@ export async function connectToWhatsApp() {
             const pendientesCount = res.data ? res.data.filter(p => p).length : 0;
             await sock.sendMessage(remoteJid, {
               text: `✅ *${pendientesCount} de ${platforms.length} plataforma(s) marcada(s) como pendiente(s)*`,
+              edit: statusKey
+            });
+            return;
+          }
+
+          if (isParcial) {
+            if (parcialAmount <= 0) {
+              await sock.sendMessage(remoteJid, {
+                text: `⚠️ Usa: \`/parcial:VALOR email1@correo.com, email2@correo.com\`\nEl valor del abono debe ser mayor a 0`,
+                edit: statusKey
+              });
+              return;
+            }
+            const parciales = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PARTIALLY_PAID, parcialPayment: parcialAmount }));
+            const res = await updatePlatforms(parciales);
+            const parcialesCount = res.data ? res.data.filter(p => p).length : 0;
+            await sock.sendMessage(remoteJid, {
+              text: `✅ *${parcialesCount} de ${platforms.length} plataforma(s) marcada(s) como pago parcial (abono: ${parcialAmount})*`,
               edit: statusKey
             });
             return;
@@ -451,7 +475,7 @@ export async function connectToWhatsApp() {
           await sock.sendMessage(remoteJid, { text: resumen });
 
         } catch (e) {
-          console.error(`Error en ${isPagar ? '/pagar' : isPendiente ? '/pendiente' : '/renovar'}:`, e);
+          console.error(`Error en ${isPagar ? '/pagar' : isPendiente ? '/pendiente' : isParcial ? '/parcial' : '/renovar'}:`, e);
           await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: statusKey });
         }
         return;
