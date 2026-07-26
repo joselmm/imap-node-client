@@ -405,9 +405,11 @@ export async function connectToWhatsApp() {
 
           if (isPendiente) {
             const pendientes = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PENDING }));
-            await updatePlatforms(pendientes);
+            const res = await updatePlatforms(pendientes);
+            const ids = new Set(platforms.map(p => p.id));
+            const actualizadas = (res.data || []).filter(p => ids.has(p.id) && p.paymentStatus === PAYMENT_STATUSES.PENDING);
             await sock.sendMessage(remoteJid, {
-              text: `✅ *${platforms.length} de ${platforms.length} plataforma(s) marcada(s) como pendiente(s)*`,
+              text: `✅ *${actualizadas.length} de ${platforms.length} plataforma(s) marcada(s) como pendiente(s)*`,
               edit: statusKey
             });
             return;
