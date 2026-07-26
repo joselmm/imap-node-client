@@ -393,9 +393,11 @@ export async function connectToWhatsApp() {
 
           if (isPagar) {
             const pagadas = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PAID, parcialPayment: 0 }));
-            await updatePlatforms(pagadas);
+            const res = await updatePlatforms(pagadas);
+            const ids = new Set(platforms.map(p => p.id));
+            const actualizadas = (res.data || []).filter(p => ids.has(p.id) && p.paymentStatus === PAYMENT_STATUSES.PAID);
             await sock.sendMessage(remoteJid, {
-              text: `✅ *${platforms.length} de ${platforms.length} plataforma(s) marcada(s) como pagada(s)*`,
+              text: `✅ *${actualizadas.length} de ${platforms.length} plataforma(s) marcada(s) como pagada(s)*`,
               edit: statusKey
             });
             return;
@@ -420,9 +422,11 @@ export async function connectToWhatsApp() {
               return;
             }
             const parciales = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PARTIALLY_PAID, parcialPayment: parcialAmount }));
-            await updatePlatforms(parciales);
+            const res = await updatePlatforms(parciales);
+            const ids = new Set(platforms.map(p => p.id));
+            const actualizadas = (res.data || []).filter(p => ids.has(p.id) && p.paymentStatus === PAYMENT_STATUSES.PARTIALLY_PAID && Number(p.parcialPayment) === parcialAmount);
             await sock.sendMessage(remoteJid, {
-              text: `✅ *${platforms.length} de ${platforms.length} plataforma(s) marcada(s) como pago parcial (abono: ${parcialAmount})*`,
+              text: `✅ *${actualizadas.length} de ${platforms.length} plataforma(s) marcada(s) como pago parcial (abono: ${parcialAmount})*`,
               edit: statusKey
             });
             return;
