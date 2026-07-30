@@ -520,7 +520,7 @@ export async function connectToWhatsApp() {
         });
       }
 
-      await sock.sendMessage(remoteJid, { text: `🔄 Asignando plataformas a *${clienteEmail}*...` });
+      await sock.sendMessage(remoteJid, { text: `🔄 ${senderContact} asignando plataformas a *${clienteEmail}*...` });
       await sock.sendPresenceUpdate('composing', remoteJid);
 
       try {
