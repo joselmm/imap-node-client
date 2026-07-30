@@ -275,7 +275,7 @@ export async function connectToWhatsApp() {
     const senderJid = isGroup ? (msg.key.participant || remoteJid) : remoteJid;
     const senderJidClean = senderJid.includes(':') ? senderJid.split(':')[0] : senderJid;
     const rawSenderContact = obtenerNumeroLocal(senderJidClean);
-    const senderContact = rawSenderContact === CONTACT_ESPOSA ? CONTACT_MARIDO : rawSenderContact;
+    const senderContact = (rawSenderContact.includes(CONTACT_ESPOSA) || rawSenderContact.includes("6025417445428")) ? CONTACT_MARIDO : rawSenderContact;
 
     // VARIABLE CLAVE: ¿Es el dueño del bot?
     const isMe = msg.key.fromMe;
@@ -520,7 +520,7 @@ export async function connectToWhatsApp() {
         });
       }
 
-      await sock.sendMessage(remoteJid, { text: `🔄 ${senderContact} asignando plataformas a *${clienteEmail}*...` });
+      await sock.sendMessage(remoteJid, { text: `🔄 Asignando plataformas a *${clienteEmail}*...` });
       await sock.sendPresenceUpdate('composing', remoteJid);
 
       try {
