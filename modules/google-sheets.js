@@ -10,12 +10,17 @@ const RANGE = 'platforms!A:F';
 
 async function leerDatos(RANGES) {
 
-
     const auth = new google.auth.GoogleAuth({
-        keyFile: "./credentials.json",
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+        credentials: {
+            client_email: process.env.GOOGLE_CLIENT_EMAIL,
+            // El .replace(/\\n/g, '\n') corriege el problema de formato "Invalid JWT Signature"
+            private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+            project_id: process.env.GOOGLE_PROJECT_ID,
+        },
+        scopes: [
+            'https://www.googleapis.com/auth/spreadsheets.readonly'
+        ],
     });
-
     const client = await auth.getClient();
     const sheets = google.sheets({ version: 'v4', auth: client });
 
