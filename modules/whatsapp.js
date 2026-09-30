@@ -306,21 +306,19 @@ export async function connectToWhatsApp() {
         return ejecutarConsulta(messageLower, process.env.SUPERADMIN_MASTER_KEY, remoteJid, true);
       }
 
-      // ── /renovar: Renovar una o varias plataformas por email ──
-      const isRenovarPE = messageLower.startsWith("/renovar:pe");
-      const isPagar = messageLower.startsWith("/pagar");
-      const isPendiente = messageLower.startsWith("/pendiente");
-      const isParcial = messageLower.startsWith("/parcial:");
-      let parcialAmount = 0;
-      if (isParcial) {
-        const match = messageLower.match(/^\/parcial:(\d+)/);
-        parcialAmount = match ? parseInt(match[1], 10) : 0;
-      }
-      if (messageLower.startsWith("/renovar") || messageLower.startsWith("/pagar") || messageLower.startsWith("/pendiente") || messageLower.startsWith("/parcial:")) {
+      // ── NUMERO:renovar|pagar|pendiente|parcial:VALOR ──
+      const cmdMatch = messageLower.match(/^(\d{4,15})\s*:\s*(renovar(?::pe)?|pagar|pendiente|parcial)(?::(\d+))?(?:\s*:\s*|\s+)([\s\S]*)$/);
+      if (cmdMatch) {
+        const numeroDeclarado = cmdMatch[1];
+        const cmd = cmdMatch[2];
+        const isRenovarPE = cmd === 'renovar:pe';
+        const isPagar = cmd === 'pagar';
+        const isPendiente = cmd === 'pendiente';
+        const isParcial = cmd === 'parcial';
+        const parcialAmount = cmdMatch[3] ? parseInt(cmdMatch[3], 10) : 0;
+
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const prefix = isRenovarPE ? "/renovar:pe" : isPagar ? "/pagar" : isPendiente ? "/pendiente" : isParcial ? messageContent.match(/^\/parcial:\d+/)[0] : "/renovar";
-        const textAfterCommand = messageContent.slice(prefix.length).trim();
-        let emails = textAfterCommand.match(emailRegex) || [];
+        let emails = messageContent.slice(cmdMatch[0].length).match(emailRegex) || [];
 
         if (emails.length === 0) {
           const quotedMsg = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -334,21 +332,19 @@ export async function connectToWhatsApp() {
         if (emails.length > 0) {
           const isGroup = remoteJid.endsWith('@g.us');
           if (!isGroup) {
-            const chatNumber = obtenerNumeroLocal(remoteJid);
-            const ownerNumber = obtenerNumeroLocal(process.env.WHATSAPP_CONTACT + '@s.whatsapp.net');
-            if (chatNumber !== ownerNumber) {
-              const clientRes = await queryData('clients', `@contact@ == '${chatNumber}'`);
-              if (clientRes.noError && clientRes.data?.length > 0) {
-                clientIdsFilter = new Set(clientRes.data.map(c => c.id));
-              }
+            const clientRes = await queryData('clients', `@contact@ == '${numeroDeclarado}'`);
+            if (!clientRes.noError || !clientRes.data || clientRes.data.length === 0) {
+              return await sock.sendMessage(remoteJid, {
+                text: `❌ El número *${numeroDeclarado}* no tiene clientes registrados`
+              });
             }
+            clientIdsFilter = new Set(clientRes.data.map(c => c.id));
           }
         }
 
         if (emails.length === 0) {
-          const cmdName = isPagar ? "/pagar" : isPendiente ? "/pendiente" : isParcial ? "/parcial:VALOR" : "/renovar";
           return await sock.sendMessage(remoteJid, {
-            text: `⚠️ Usa: \`${cmdName} email1@correo.com, email2@correo.com\`\nO responde a un mensaje que contenga correos con \`${cmdName}\``
+            text: `⚠️ Usa: \`NUMERO:${cmd} email1@correo.com, email2@correo.com\`\nO responde a un mensaje que contenga correos con \`NUMERO:${cmd}\`\n\nEjemplos:\n\`3148854055:renovar:juan@correo.com\`\n\`3148854055:parcial:500:juan@correo.com\``
           });
         }
 
@@ -418,7 +414,7 @@ export async function connectToWhatsApp() {
           if (isParcial) {
             if (parcialAmount <= 0) {
               await sock.sendMessage(remoteJid, {
-                text: `⚠️ Usa: \`/parcial:VALOR email1@correo.com, email2@correo.com\`\nEl valor del abono debe ser mayor a 0`,
+                text: `⚠️ Usa: \`NUMERO:parcial:VALOR email1@correo.com, email2@correo.com\`\nEl valor del abono debe ser mayor a 0`,
                 edit: statusKey
               });
               return;
@@ -478,7 +474,7 @@ export async function connectToWhatsApp() {
           await sock.sendMessage(remoteJid, { text: resumen });
 
         } catch (e) {
-          console.error(`Error en ${isPagar ? '/pagar' : isPendiente ? '/pendiente' : isParcial ? '/parcial' : '/renovar'}:`, e);
+          console.error(`Error en ${numeroDeclarado}:${cmd}:`, e);
           await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: statusKey });
         }
         return;
@@ -518,7 +514,7 @@ export async function connectToWhatsApp() {
 
       if (!emailRegex.test(clienteEmail) || plataformasEmails.length === 0) {
         return await sock.sendMessage(remoteJid, {
-          text: "⚠️ *Formato:* `NUMERO:asignar:correocliente@ejemplo.com:correoplataforma@ejemplo.com`\n\nPara varias plataformas:\n`NUMERO:asignar:correo@ej.com:correo1@ej.com,correo2@ej.com`\n\nEjemplo:\n`3148854055:asignar:juan@ej.com:netflix@correo.com`"
+          text: "⚠️ *Formato:* `NUMERO:asignar:correocliente@ejemplo.com:correoplataforma@ejemplo.com`\n\nPara varias plataformas:\n`NUMERO:asignar:correo@ej.com:correo1@ej.com,correo2@ej.com`\n\nEjemplo:\n`3138927329:asignar:juan@ej.com:netflix@correo.com`"
         });
       }
 
