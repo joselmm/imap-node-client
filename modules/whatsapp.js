@@ -503,28 +503,30 @@ export async function connectToWhatsApp() {
       return ejecutarConsulta(email, llave, remoteJid, false);
     }
 
-    if (messageLower.startsWith("asignar:") || messageLower.startsWith("asignar: ")) {
-      const parts = messageContent.split(":");
-      const clienteEmail = parts[1]?.trim();
+    const asignarMatch = messageLower.match(/^(\d{4,15})\s*:\s*asignar\s*:/);
+    if (asignarMatch) {
+      const numeroDeclarado = asignarMatch[1];
+      const resto = messageContent.slice(messageContent.indexOf('asignar:', asignarMatch[0].length) + 'asignar:'.length);
+      const partesResto = resto.split(":");
+
+      const clienteEmail = partesResto[0]?.trim();
 
       let plataformasEmails = [];
-      if (parts.length === 3) {
-        plataformasEmails = parts[2].split(/[,;\n]+/).map(e => e.trim()).filter(e => e);
-      } else if (parts.length > 3) {
-        plataformasEmails = parts.slice(2).map(e => e.trim()).filter(e => e);
+      if (partesResto.length >= 2) {
+        plataformasEmails = partesResto.slice(1).join(":").split(/[,;\n]+/).map(e => e.trim()).filter(e => e);
       }
 
       if (!emailRegex.test(clienteEmail) || plataformasEmails.length === 0) {
         return await sock.sendMessage(remoteJid, {
-          text: "⚠️ *Formato:* `asignar:correocliente@ejemplo.com:correoplataforma@ejemplo.com`\n\nPara varias plataformas:\n`asignar:correo@ej.com:correo1@ej.com,correo2@ej.com`"
+          text: "⚠️ *Formato:* `NUMERO:asignar:correocliente@ejemplo.com:correoplataforma@ejemplo.com`\n\nPara varias plataformas:\n`NUMERO:asignar:correo@ej.com:correo1@ej.com,correo2@ej.com`\n\nEjemplo:\n`3148854055:asignar:juan@ej.com:netflix@correo.com`"
         });
       }
 
-      await sock.sendMessage(remoteJid, { text: `🔄 Asignando plataformas a *${clienteEmail}*...` });
+      await sock.sendMessage(remoteJid, { text: `🔄 Asignando plataformas a *${clienteEmail}* (cuenta *${numeroDeclarado}*)...` });
       await sock.sendPresenceUpdate('composing', remoteJid);
 
       try {
-        const resultado = await asignarPlataformas(clienteEmail, plataformasEmails, senderContact, isMe);
+        const resultado = await asignarPlataformas(clienteEmail, plataformasEmails, numeroDeclarado);
         await sock.sendPresenceUpdate('paused', remoteJid);
 
         let respuesta = "";
