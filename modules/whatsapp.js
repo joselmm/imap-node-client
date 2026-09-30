@@ -502,7 +502,7 @@ export async function connectToWhatsApp() {
     const asignarMatch = messageLower.match(/^(\d{4,15})\s*:\s*asignar\s*:/);
     if (asignarMatch) {
       const numeroDeclarado = asignarMatch[1];
-      const resto = messageContent.slice(messageContent.indexOf('asignar:', asignarMatch[0].length) + 'asignar:'.length);
+      const resto = messageContent.slice(asignarMatch[0].length);
       const partesResto = resto.split(":");
 
       const clienteEmail = partesResto[0]?.trim();
