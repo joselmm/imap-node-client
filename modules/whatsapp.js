@@ -307,7 +307,7 @@ export async function connectToWhatsApp() {
       }
 
       // ── NUMERO:renovar|pagar|pendiente|parcial:VALOR ──
-      const cmdMatch = messageLower.match(/^(\d{4,15})\s*:\s*(renovar(?::pe)?|pagar|pendiente|parcial)(?::(\d+)(?=$|[\s:]))?(?:\s*:\s*|\s+)?([\s\S]*)$/);
+      const cmdMatch = messageLower.match(/^(\d{4,15})\s*:\s*(renovar(?::pe)?|pagar|pendiente|parcial)(?::(\d+)(?=$|[\s:]))?(?:\s*:\s*|\s+)?/);
       if (cmdMatch) {
         const numeroDeclarado = cmdMatch[1];
         const cmd = cmdMatch[2];
