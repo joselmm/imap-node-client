@@ -157,7 +157,7 @@ app.listen(port, () => console.log("📡 Servidor QR en puerto " + port));
 export async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
   const { version, isLatest } = await fetchLatestBaileysVersion();
-  console.log(`Usando versión de WA v${version.join('.')}, isLatest: ${isLatest}`);
+  console.log(`Usando versión de WA v${version.join('.')}, isLatest:${isLatest}`);
   sock = makeWASocket({
     auth: state,
     printQRInTerminal: false,
@@ -307,179 +307,187 @@ export async function connectToWhatsApp() {
       }
 
       // ── NUMERO:renovar|pagar|pendiente|parcial:VALOR ──
-      const cmdMatch = messageLower.match(/^(\d{4,15})\s*:\s*(renovar(?::pe)?|pagar|pendiente|parcial)(?::(\d+)(?=$|[\s:]))?(?:\s*:\s*|\s+)?/);
-      if (cmdMatch) {
-        const numeroDeclarado = cmdMatch[1];
-        const cmd = cmdMatch[2];
-        const isRenovarPE = cmd === 'renovar:pe';
-        const isPagar = cmd === 'pagar';
-        const isPendiente = cmd === 'pendiente';
-        const isParcial = cmd === 'parcial';
-        const parcialAmount = cmdMatch[3] ? parseInt(cmdMatch[3], 10) : 0;
+      const primerDosPuntos = messageContent.indexOf(':');
+      if (primerDosPuntos !== -1) {
+        const parteNumero = messageContent.slice(0, primerDosPuntos);
+        const restoComando = messageContent.slice(primerDosPuntos);
+        const numeroLimpio = parteNumero.replace(/[\s\-\+]/g, '');
+        const mensajeParaMatch = numeroLimpio + restoComando;
+        const mensajeParaMatchLower = mensajeParaMatch.toLowerCase();
 
-        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        let emails = messageContent.slice(cmdMatch[0].length).match(emailRegex) || [];
+        const cmdMatch = mensajeParaMatchLower.match(/^(?:\d{1,3})?(\d{7,15})\s*:\s*(renovar(?::pe)?|pagar|pendiente|parcial)(?::(\d+)(?=$|[\s:]))?(?:\s*:\s*|\s+)?/);
+        if (cmdMatch) {
+          const numeroDeclarado = cmdMatch[1];
+          const cmd = cmdMatch[2];
+          const isRenovarPE = cmd === 'renovar:pe';
+          const isPagar = cmd === 'pagar';
+          const isPendiente = cmd === 'pendiente';
+          const isParcial = cmd === 'parcial';
+          const parcialAmount = cmdMatch[3] ? parseInt(cmdMatch[3], 10) : 0;
 
-        if (emails.length === 0) {
-          const quotedMsg = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
-          if (quotedMsg) {
-            const quotedText = quotedMsg.conversation || quotedMsg.extendedTextMessage?.text || "";
-            emails = quotedText.match(emailRegex) || [];
-          }
-        }
+          const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+          let emails = messageContent.slice(cmdMatch[0].length).match(emailRegex) || [];
 
-        let clientIdsFilter = null;
-        if (emails.length > 0) {
-          const isGroup = remoteJid.endsWith('@g.us');
-          if (!isGroup) {
-            const clientRes = await queryData('clients', `@contact@ == '${numeroDeclarado}'`);
-            if (!clientRes.noError || !clientRes.data || clientRes.data.length === 0) {
-              return await sock.sendMessage(remoteJid, {
-                text: `❌ El número *${numeroDeclarado}* no tiene clientes registrados`
-              });
+          if (emails.length === 0) {
+            const quotedMsg = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+            if (quotedMsg) {
+              const quotedText = quotedMsg.conversation || quotedMsg.extendedTextMessage?.text || "";
+              emails = quotedText.match(emailRegex) || [];
             }
-            clientIdsFilter = new Set(clientRes.data.map(c => c.id));
           }
-        }
 
-        if (emails.length === 0) {
-          return await sock.sendMessage(remoteJid, {
-            text: `⚠️ Usa: \`NUMERO:${cmd} email1@correo.com, email2@correo.com\`\nO responde a un mensaje que contenga correos con \`NUMERO:${cmd}\`\n\nEjemplos:\n\`3148854055:renovar:juan@correo.com\`\n\`3148854055:parcial:500:juan@correo.com\``
-          });
-        }
+          let clientIdsFilter = null;
+          if (emails.length > 0) {
+            const isGroup = remoteJid.endsWith('@g.us');
+            if (!isGroup) {
+              const clientRes = await queryData('clients', `@contact@ == '${numeroDeclarado}'`);
+              if (!clientRes.noError || !clientRes.data || clientRes.data.length === 0) {
+                return await sock.sendMessage(remoteJid, {
+                  text: `❌ El número *${numeroDeclarado}* no tiene clientes registrados`
+                });
+              }
+              clientIdsFilter = new Set(clientRes.data.map(c => c.id));
+            }
+          }
 
-        const statusKey = (await sock.sendMessage(remoteJid, { text: `🔍 Buscando plataforma(s)...` })).key;
+          if (emails.length === 0) {
+            return await sock.sendMessage(remoteJid, {
+              text: `⚠️ Usa: \`NUMERO:${cmd} email1@correo.com, email2@correo.com\`\nO responde a un mensaje que contenga correos con \`NUMERO:${cmd}\`\n\nEjemplos:\n\`3148854055:renovar:juan@correo.com\`\n\`3148854055:parcial:500:juan@correo.com\``
+            });
+          }
 
-        try {
-          let platforms;
+          const statusKey = (await sock.sendMessage(remoteJid, { text: `🔍 Buscando plataforma(s)...` })).key;
 
-          if (clientIdsFilter) {
-            const clientCondition = [...clientIdsFilter].map(id => `@clientId@ == '${id}'`).join(' || ');
-            const platRes = await queryData('platforms', clientCondition);
-            if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
-              await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas para este cliente`, edit: statusKey });
+          try {
+            let platforms;
+
+            if (clientIdsFilter) {
+              const clientCondition = [...clientIdsFilter].map(id => `@clientId@ == '${id}'`).join(' || ');
+              const platRes = await queryData('platforms', clientCondition);
+              if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
+                await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas para este cliente`, edit: statusKey });
+                return;
+              }
+              platforms = emails.length > 0
+                ? platRes.data.filter(p => emails.includes(p.email))
+                : platRes.data;
+            } else {
+              const emailCondition = emails.map(e => `@email@ == '${e}'`).join(' || ');
+              const platRes = await queryData('platforms', emailCondition);
+              if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
+                await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: statusKey });
+                return;
+              }
+              platforms = platRes.data;
+            }
+
+            if (!platforms || platforms.length === 0) {
+              await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas`, edit: statusKey });
               return;
             }
-            platforms = emails.length > 0
-              ? platRes.data.filter(p => emails.includes(p.email))
-              : platRes.data;
-          } else {
-            const emailCondition = emails.map(e => `@email@ == '${e}'`).join(' || ');
-            const platRes = await queryData('platforms', emailCondition);
-            if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
-              await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: statusKey });
-              return;
-            }
-            platforms = platRes.data;
-          }
 
-          if (!platforms || platforms.length === 0) {
-            await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas`, edit: statusKey });
-            return;
-          }
+            const allCondition = `@id@ != ''`;
+            const [platNamesRes, clientsRes] = await Promise.all([
+              queryData('platformNames', allCondition),
+              queryData('clients', allCondition),
+            ]);
+            const platformNames = platNamesRes.data || [];
+            const clients = clientsRes.data || [];
+            const template = await fetchPlatformTemplate();
 
-          const allCondition = `@id@ != ''`;
-          const [platNamesRes, clientsRes] = await Promise.all([
-            queryData('platformNames', allCondition),
-            queryData('clients', allCondition),
-          ]);
-          const platformNames = platNamesRes.data || [];
-          const clients = clientsRes.data || [];
-          const template = await fetchPlatformTemplate();
-
-          if (isPagar) {
-            const pagadas = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PAID, parcialPayment: 0 }));
-            const res = await updatePlatforms(pagadas);
-            const ids = new Set(platforms.map(p => p.id));
-            const actualizadas = (res.data || []).filter(p => ids.has(p.id) && p.paymentStatus === PAYMENT_STATUSES.PAID);
-            await sock.sendMessage(remoteJid, {
-              text: `✅ *${actualizadas.length} de ${platforms.length} plataforma(s) marcada(s) como pagada(s)*`,
-              edit: statusKey
-            });
-            return;
-          }
-
-          if (isPendiente) {
-            const pendientes = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PENDING }));
-            const res = await updatePlatforms(pendientes);
-            const ids = new Set(platforms.map(p => p.id));
-            const actualizadas = (res.data || []).filter(p => ids.has(p.id) && p.paymentStatus === PAYMENT_STATUSES.PENDING);
-            await sock.sendMessage(remoteJid, {
-              text: `✅ *${actualizadas.length} de ${platforms.length} plataforma(s) marcada(s) como pendiente(s)*`,
-              edit: statusKey
-            });
-            return;
-          }
-
-          if (isParcial) {
-            if (parcialAmount <= 0) {
+            if (isPagar) {
+              const pagadas = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PAID, parcialPayment: 0 }));
+              const res = await updatePlatforms(pagadas);
+              const ids = new Set(platforms.map(p => p.id));
+              const actualizadas = (res.data || []).filter(p => ids.has(p.id) && p.paymentStatus === PAYMENT_STATUSES.PAID);
               await sock.sendMessage(remoteJid, {
-                text: `⚠️ Usa: \`NUMERO:parcial:VALOR email1@correo.com, email2@correo.com\`\nEl valor del abono debe ser mayor a 0`,
+                text: `✅ *${actualizadas.length} de ${platforms.length} plataforma(s) marcada(s) como pagada(s)*`,
                 edit: statusKey
               });
               return;
             }
-            const parciales = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PARTIALLY_PAID, parcialPayment: parcialAmount }));
-            const res = await updatePlatforms(parciales);
-            const ids = new Set(platforms.map(p => p.id));
-            const actualizadas = (res.data || []).filter(p => ids.has(p.id) && p.paymentStatus === PAYMENT_STATUSES.PARTIALLY_PAID && Number(p.parcialPayment) === parcialAmount);
-            await sock.sendMessage(remoteJid, {
-              text: `✅ *${actualizadas.length} de ${platforms.length} plataforma(s) marcada(s) como pago parcial (abono: ${parcialAmount})*`,
-              edit: statusKey
-            });
-            return;
-          }
 
-          if (isRenovarPE) {
-            platforms = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PENDING }));
-          }
-          const allPlatforms = await renewMultiplePlatforms(platforms);
+            if (isPendiente) {
+              const pendientes = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PENDING }));
+              const res = await updatePlatforms(pendientes);
+              const ids = new Set(platforms.map(p => p.id));
+              const actualizadas = (res.data || []).filter(p => ids.has(p.id) && p.paymentStatus === PAYMENT_STATUSES.PENDING);
+              await sock.sendMessage(remoteJid, {
+                text: `✅ *${actualizadas.length} de ${platforms.length} plataforma(s) marcada(s) como pendiente(s)*`,
+                edit: statusKey
+              });
+              return;
+            }
 
-          let renovadasCount = 0;
-          let errores = [];
-
-          const delay = () => new Promise(r => setTimeout(r, 500 + Math.random() * 1300));
-
-          for (let i = 0; i < platforms.length; i++) {
-            const plat = platforms[i];
-            const platActualizada = allPlatforms.find(p => p.id === plat.id);
-
-            if (!platActualizada) {
-              errores.push(plat.email);
-              if (i === 0) {
-                await sock.sendMessage(remoteJid, { text: `❌ ${plat.email}\nNo se encontró en la respuesta`, edit: statusKey });
+            if (isParcial) {
+              if (parcialAmount <= 0) {
+                await sock.sendMessage(remoteJid, {
+                  text: `⚠️ Usa: \`NUMERO:parcial:VALOR email1@correo.com, email2@correo.com\`\nEl valor del abono debe ser mayor a 0`,
+                  edit: statusKey
+                });
+                return;
               }
-              continue;
+              const parciales = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PARTIALLY_PAID, parcialPayment: parcialAmount }));
+              const res = await updatePlatforms(parciales);
+              const ids = new Set(platforms.map(p => p.id));
+              const actualizadas = (res.data || []).filter(p => ids.has(p.id) && p.paymentStatus === PAYMENT_STATUSES.PARTIALLY_PAID && Number(p.parcialPayment) === parcialAmount);
+              await sock.sendMessage(remoteJid, {
+                text: `✅ *${actualizadas.length} de ${platforms.length} plataforma(s) marcada(s) como pago parcial (abono: ${parcialAmount})*`,
+                edit: statusKey
+              });
+              return;
             }
 
-            renovadasCount++;
-            const client = clients.find(c => c.id === platActualizada.clientId);
-            const platName = platformNames.find(pn => pn.id === platActualizada.platformNameId)?.platformName || platActualizada.email;
-            const msg = (client && template) ? remplazarEtiquetas(platActualizada, client, template, 'renewal', platformNames) : '';
+            if (isRenovarPE) {
+              platforms = platforms.map(p => ({ ...p, paymentStatus: PAYMENT_STATUSES.PENDING }));
+            }
+            const allPlatforms = await renewMultiplePlatforms(platforms);
 
-            if (i === 0) {
-              await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada`, edit: statusKey });
-            } else {
-              await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada` });
+            let renovadasCount = 0;
+            let errores = [];
+
+            const delay = () => new Promise(r => setTimeout(r, 500 + Math.random() * 1300));
+
+            for (let i = 0; i < platforms.length; i++) {
+              const plat = platforms[i];
+              const platActualizada = allPlatforms.find(p => p.id === plat.id);
+
+              if (!platActualizada) {
+                errores.push(plat.email);
+                if (i === 0) {
+                  await sock.sendMessage(remoteJid, { text: `❌ ${plat.email}\nNo se encontró en la respuesta`, edit: statusKey });
+                }
+                continue;
+              }
+
+              renovadasCount++;
+              const client = clients.find(c => c.id === platActualizada.clientId);
+              const platName = platformNames.find(pn => pn.id === platActualizada.platformNameId)?.platformName || platActualizada.email;
+              const msg = (client && template) ? remplazarEtiquetas(platActualizada, client, template, 'renewal', platformNames) : '';
+
+              if (i === 0) {
+                await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada`, edit: statusKey });
+              } else {
+                await sock.sendMessage(remoteJid, { text: msg || `✅ *${platName}* renovada` });
+              }
+
+              if (i > 0 && i < platforms.length - 1) await delay();
             }
 
-            if (i > 0 && i < platforms.length - 1) await delay();
-          }
+            await delay();
+            let resumen = `✅ ${renovadasCount} de ${platforms.length} plataforma(s) renovada(s)`;
+            if (errores.length > 0) {
+              resumen += `\n❌ ${errores.length} error(es): ${errores.join(', ')}`;
+            }
+            await sock.sendMessage(remoteJid, { text: resumen });
 
-          await delay();
-          let resumen = `✅ ${renovadasCount} de ${platforms.length} plataforma(s) renovada(s)`;
-          if (errores.length > 0) {
-            resumen += `\n❌ ${errores.length} error(es): ${errores.join(', ')}`;
+          } catch (e) {
+            console.error(`Error en ${numeroDeclarado}:${cmd}:`, e);
+            await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: statusKey });
           }
-          await sock.sendMessage(remoteJid, { text: resumen });
-
-        } catch (e) {
-          console.error(`Error en ${numeroDeclarado}:${cmd}:`, e);
-          await sock.sendMessage(remoteJid, { text: `❌ Error: ${e.message}`, edit: statusKey });
+          return;
         }
-        return;
       }
-
     }
 
     // --- BLOQUE 2: PARA TODOS (USUARIOS Y ADMIN) ---
@@ -572,8 +580,8 @@ export async function connectToWhatsApp() {
           respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
             `*Servicio:* ${resultado.about}\n` +
             (resultado.profileName ? `\n👤 *Perfil:* ${resultado.profileName}\n` : "") +
-            (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + // <--- Doble \n antes y después
-            (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + // <--- Doble \n antes y después
+            (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + 
+            (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + 
             (resultado.estimatedTimeAgo ? `🕒 *Recibido:* ${resultado.estimatedTimeAgo}\n` : "");
 
 
@@ -582,8 +590,8 @@ export async function connectToWhatsApp() {
           respuesta = `✅ *CONSULTA EXITOSA*\n\n` +
             `*Servicio:* ${resultado.about}\n` +
             (resultado.profileName ? `\n👤 *Perfil:* ${resultado.profileName}\n` : "") +
-            (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + // <--- Doble \n antes y después
-            (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + // <--- Doble \n antes y después
+            (resultado.code ? `\n🔑 *Código:* \`${resultado.code}\`\n\n` : "") + 
+            (resultado.link ? `\n🔗 *Enlace:* ${resultado.link}\n\n` : "") + 
             (resultado.estimatedTimeAgo ? `🕒 *Recibido:* ${resultado.estimatedTimeAgo}\n` : "") +
             `\n${process.env.ADMIN_DOMAIN || ""}`;
         }
