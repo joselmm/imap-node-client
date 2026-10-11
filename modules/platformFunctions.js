@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
-import { selectRows, upsertRows, eq, inList } from './supabase.js';
+import { selectRows, upsertRows, inList } from './supabase.js';
+import { candidatosNumero } from './consultarCodigo.js';
 
 dotenv.config();
 
@@ -21,7 +22,8 @@ export async function asignarPlataformas(clienteEmail, plataformasEmails, sender
     inactivas: [],
   };
 
-  const clientResponse = await queryData('clients', [eq('contact', senderContact)]);
+  const candidatos = candidatosNumero(senderContact);
+  const clientResponse = await queryData('clients', [inList('contact', candidatos)]);
   if (!clientResponse.noError || !clientResponse.data || clientResponse.data.length === 0) {
     return { noError: false, errorMessage: `No tienes clientes registrados con este número` };
   }

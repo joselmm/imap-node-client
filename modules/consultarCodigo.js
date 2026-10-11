@@ -17,6 +17,43 @@ export function obtenerNumeroLocal(remoteJid) {
     }
 }
 
+/**
+ * Limpia un número escrito a mano: quita espacios, guiones, paréntesis y el
+ * prefijo de país, devolviendo solo el número nacional (como está en la db).
+ *
+ * Acepta tanto números con prefijo internacional ("+57 314 885 4055",
+ * "573148854055") como números nacionales ("314 885 4055", "3148854055").
+ * Si el país por defecto no aplica, cae al número solo con dígitos.
+ */
+export function limpiarNumero(input, defaultCountry = process.env.DEFAULT_COUNTRY || 'CO') {
+    if (input === undefined || input === null) return '';
+
+    const raw = String(input).trim();
+    const digitos = raw.replace(/\D/g, '');
+    if (!digitos) return '';
+
+    try {
+        // Con "+" el prefijo es explícito; sin "+" usamos el país por defecto.
+        const phoneNumber = raw.startsWith('+')
+            ? parsePhoneNumberWithError('+' + digitos)
+            : parsePhoneNumberWithError(digitos, defaultCountry);
+
+        return phoneNumber.nationalNumber;
+    } catch (error) {
+        return digitos;
+    }
+}
+
+/**
+ * Devuelve las posibles formas "limpias" de un número para buscarlo en la db
+ * (con y sin prefijo), por si el país por defecto no logra deducir el prefijo.
+ */
+export function candidatosNumero(input, defaultCountry = process.env.DEFAULT_COUNTRY || 'CO') {
+    const digitos = String(input ?? '').replace(/\D/g, '');
+    const limpio = limpiarNumero(input, defaultCountry);
+    return [...new Set([limpio, digitos].filter(Boolean))];
+}
+
 
 // Utilidad auxiliar para pausar la ejecución (reemplaza tu retryWithCountdown)
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));

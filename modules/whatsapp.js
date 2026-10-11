@@ -5,7 +5,7 @@ import cors from "cors";
 import fs from "fs";
 import path from "path";
 import { uploadFolderZipToGAS } from "../compress-sessions.js";
-import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
+import { consultarCodigo, obtenerNumeroLocal, limpiarNumero } from "./consultarCodigo.js";
 
 import { generatePassword, procesarCalculo, procesarPago } from "./utils.js"
 import { asignarPlataformas, queryData, updatePlatforms } from "./platformFunctions.js"
@@ -313,14 +313,7 @@ export async function connectToWhatsApp() {
         const parteNumero = messageContent.slice(0, primerDosPuntos);
         const restoComando = messageContent.slice(primerDosPuntos);
         
-        let numeroLimpio = parteNumero.trim();
-        if (numeroLimpio.startsWith('+')) {
-          const primerEspacio = numeroLimpio.indexOf(' ');
-          if (primerEspacio !== -1) {
-            numeroLimpio = numeroLimpio.slice(primerEspacio + 1);
-          }
-        }
-        numeroLimpio = numeroLimpio.replace(/[\s\-]/g, '');
+        let numeroLimpio = limpiarNumero(parteNumero);
 
         const mensajeParaMatch = numeroLimpio + restoComando;
         const mensajeParaMatchLower = mensajeParaMatch.toLowerCase();
@@ -514,9 +507,9 @@ export async function connectToWhatsApp() {
       return ejecutarConsulta(email, llave, remoteJid, false);
     }
 
-    const asignarMatch = messageLower.match(/^(\d{4,15})\s*:\s*asignar\s*:/);
+    const asignarMatch = messageLower.match(/^([^:]+?)\s*:\s*asignar\s*:/);
     if (asignarMatch) {
-      const numeroDeclarado = asignarMatch[1];
+      const numeroDeclarado = limpiarNumero(asignarMatch[1]);
       const resto = messageContent.slice(asignarMatch[0].length);
       const partesResto = resto.split(":");
 
@@ -527,7 +520,7 @@ export async function connectToWhatsApp() {
         plataformasEmails = partesResto.slice(1).join(":").split(/[,;\n]+/).map(e => e.trim()).filter(e => e);
       }
 
-      if (!emailRegex.test(clienteEmail) || plataformasEmails.length === 0) {
+      if (!/^\d{4,15}$/.test(numeroDeclarado) || !emailRegex.test(clienteEmail) || plataformasEmails.length === 0) {
         return await sock.sendMessage(remoteJid, {
           text: "⚠️ *Formato:* `NUMERO:asignar:correocliente@ejemplo.com:correoplataforma@ejemplo.com`\n\nPara varias plataformas:\n`NUMERO:asignar:correo@ej.com:correo1@ej.com,correo2@ej.com`\n\nEjemplo:\n`3138927329:asignar:juan@ej.com:netflix@correo.com`"
         });
