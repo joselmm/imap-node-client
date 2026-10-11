@@ -4,7 +4,7 @@ export async function desactivateClients(clientArray) {
 
   clientArray = clientArray.map(c => {
     return {
-      id: c.id,
+      ...c,
       name: "fraud-" + c.name,
       active: "0"
     }
