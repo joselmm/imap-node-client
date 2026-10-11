@@ -71,7 +71,7 @@ export async function asignarPlataformas(clienteEmail, plataformasEmails, sender
       results.yaAsignadas.push(email);
     } else {
       results.asignadas.push(email);
-      toUpdate.push({ id: plataforma.id, clientId: clienteId });
+      toUpdate.push({ ...plataforma, clientId: clienteId });
     }
   }
 
