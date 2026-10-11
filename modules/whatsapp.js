@@ -311,11 +311,20 @@ export async function connectToWhatsApp() {
       if (primerDosPuntos !== -1) {
         const parteNumero = messageContent.slice(0, primerDosPuntos);
         const restoComando = messageContent.slice(primerDosPuntos);
-        const numeroLimpio = parteNumero.replace(/[\s\-\+]/g, '');
+        
+        let numeroLimpio = parteNumero.trim();
+        if (numeroLimpio.startsWith('+')) {
+          const primerEspacio = numeroLimpio.indexOf(' ');
+          if (primerEspacio !== -1) {
+            numeroLimpio = numeroLimpio.slice(primerEspacio + 1);
+          }
+        }
+        numeroLimpio = numeroLimpio.replace(/[\s\-]/g, '');
+
         const mensajeParaMatch = numeroLimpio + restoComando;
         const mensajeParaMatchLower = mensajeParaMatch.toLowerCase();
 
-        const cmdMatch = mensajeParaMatchLower.match(/^(?:\d{1,3})?(\d{7,15})\s*:\s*(renovar(?::pe)?|pagar|pendiente|parcial)(?::(\d+)(?=$|[\s:]))?(?:\s*:\s*|\s+)?/);
+        const cmdMatch = mensajeParaMatchLower.match(/^(\d{7,15})\s*:\s*(renovar(?::pe)?|pagar|pendiente|parcial)(?::(\d+)(?=$|[\s:]))?(?:\s*:\s*|\s+)?/);
         if (cmdMatch) {
           const numeroDeclarado = cmdMatch[1];
           const cmd = cmdMatch[2];
