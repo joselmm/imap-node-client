@@ -1,43 +1,16 @@
-import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import { selectRows, upsertRows, eq, inList } from './supabase.js';
 
 dotenv.config();
 
-function getConfig() {
-  const dbUri = process.env.DB_URI || process.env.SHEET_DATA_LIBRARY;
-  const sheetId = process.env.SHEET_ID || process.env.SS_ID;
-
-  if (!dbUri) throw new Error('Falta DB_URI o SHEET_DATA_LIBRARY en .env');
-  if (!sheetId) throw new Error('Falta SHEET_ID o SS_ID en .env');
-
-  return { dbUri, sheetId };
-}
-
-export async function queryData(sheet, condition) {
-  const { dbUri, sheetId } = getConfig();
-
-  const payload = {
-    queryParameters: {
-      spreadSheetId: sheetId,
-      sheetIdType: 'name',
-      sheetId: sheet,
-    },
-    action: 'GET_IF',
-    condition,
-  };
-
-  const res = await fetch(dbUri, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-    headers: { 'Content-Type': 'application/json' }
-  });
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+/** SELECT genérico. Devuelve { noError, data } para mantener la forma anterior. */
+export async function queryData(table, filters = []) {
+  try {
+    const data = await selectRows(table, { filters });
+    return { noError: true, data };
+  } catch (e) {
+    return { noError: false, errorMessage: e.message, data: [] };
   }
-
-  const json = await res.json();
-  return json;
 }
 
 export async function asignarPlataformas(clienteEmail, plataformasEmails, senderContact) {
@@ -48,7 +21,7 @@ export async function asignarPlataformas(clienteEmail, plataformasEmails, sender
     inactivas: [],
   };
 
-  const clientResponse = await queryData('clients', `@contact@ == '${senderContact}'`);
+  const clientResponse = await queryData('clients', [eq('contact', senderContact)]);
   if (!clientResponse.noError || !clientResponse.data || clientResponse.data.length === 0) {
     return { noError: false, errorMessage: `No tienes clientes registrados con este número` };
   }
@@ -62,8 +35,7 @@ export async function asignarPlataformas(clienteEmail, plataformasEmails, sender
   }
   const clienteId = cliente.id;
 
-  const condition = plataformasEmails.map(e => `@email@ == '${e}'`).join(' || ');
-  const platResponse = await queryData('platforms', condition);
+  const platResponse = await queryData('platforms', [inList('email', plataformasEmails)]);
 
   if (!platResponse.noError) {
     return { noError: false, errorMessage: platResponse.errorMessage || 'Error al consultar plataformas' };
@@ -113,34 +85,15 @@ export async function asignarPlataformas(clienteEmail, plataformasEmails, sender
   };
 }
 
-export async function updatePlatforms(platforms, options = {}) {
+/**
+ * Actualiza/inserta plataformas por su id (equivalente al UPDATE_IF anterior,
+ * donde la condición era @id@ === ROW_OBJECT['id']).
+ */
+export async function updatePlatforms(platforms) {
   if (!Array.isArray(platforms) || platforms.length === 0) {
     throw new Error('platforms debe ser un array no vacío');
   }
 
-  const { dbUri, sheetId } = getConfig();
-  const condition = options.update_if || "@id@ === ROW_OBJECT['id']";
-
-  const payload = {
-    queryParameters: {
-      spreadSheetId: options.sheetId || sheetId,
-      sheetIdType: 'name',
-      sheetId: 'platforms',
-    },
-    action: 'UPDATE_IF',
-    condition,
-    payload: platforms,
-  };
-
-  const res = await fetch(dbUri, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  }
-
-  const json = await res.json();
-  return json;
+  const data = await upsertRows('platforms', platforms);
+  return { noError: true, data };
 }

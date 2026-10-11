@@ -1,15 +1,8 @@
-import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import { updateRows, eq } from './supabase.js';
 import { updatePlatforms } from './platformFunctions.js';
-dotenv.config();
 
-function getConfig() {
-  const dbUri = process.env.SHEET_DATA_LIBRARY;
-  const sheetId = process.env.SS_ID;
-  if (!dbUri) throw new Error('Falta SHEET_DATA_LIBRARY en .env');
-  if (!sheetId) throw new Error('Falta SS_ID en .env');
-  return { dbUri, sheetId };
-}
+dotenv.config();
 
 export function calculateRenewalDates(platform) {
   const updated = { ...platform };
@@ -31,28 +24,9 @@ export function calculateRenewalDates(platform) {
 }
 
 export async function renewPlatform(platform) {
-  const { dbUri, sheetId } = getConfig();
   const updatedPlatform = calculateRenewalDates(platform);
-
-  const payload = {
-    queryParameters: {
-      spreadSheetId: sheetId,
-      sheetIdType: 'name',
-      sheetId: 'platforms',
-    },
-    action: 'UPDATE_IF',
-    condition: `@id@ === "${platform.id}"`,
-    payload: [updatedPlatform],
-  };
-
-  const res = await fetch(dbUri, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  return res.json();
+  const data = await updateRows('platforms', [eq('id', platform.id)], updatedPlatform);
+  return { noError: true, data };
 }
 
 export async function renewMultiplePlatforms(platforms) {

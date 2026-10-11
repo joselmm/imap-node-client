@@ -1,39 +1,10 @@
-import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-dotenv.config();
-
-function getConfig() {
-  const dbUri = process.env.SHEET_DATA_LIBRARY;
-  const sheetId = process.env.SS_ID;
-  if (!dbUri) throw new Error('Falta SHEET_DATA_LIBRARY en .env');
-  if (!sheetId) throw new Error('Falta SS_ID en .env');
-  return { dbUri, sheetId };
-}
+import { selectRows, eq } from './supabase.js';
 
 export async function fetchPlatformTemplate() {
-  const { dbUri, sheetId } = getConfig();
+  const data = await selectRows('reminderOptions', { filters: [eq('settings', 'default')] });
 
-  const payload = {
-    queryParameters: {
-      spreadSheetId: sheetId,
-      sheetIdType: 'name',
-      sheetId: 'reminderOptions',
-    },
-    action: 'GET_IF',
-    condition: "@settings@ ==='default'",
-  };
-
-  const res = await fetch(dbUri, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  const json = await res.json();
-
-  if (json.data && json.data[0]?.reminderOptions) {
-    const settings = JSON.parse(json.data[0].reminderOptions);
+  if (data && data[0]?.reminderOptions) {
+    const settings = JSON.parse(data[0].reminderOptions);
     return settings.platformInfo?.message || '';
   }
   return '';

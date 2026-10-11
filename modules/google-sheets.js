@@ -1,71 +1,24 @@
-import { google } from 'googleapis';
-import fs from "fs";
 import { config } from "dotenv";
 config()
 import { sendMessage } from "./whatsapp.js";
+import { selectRows } from "./supabase.js";
 
 
-// Nombre de la hoja y rango (por ejemplo: 'Hoja1!A1:C5')
-const RANGE = 'platforms!A:F';
+// Cada tabla de Supabase equivale a una "hoja" del backend anterior.
+async function leerDatos(TABLES) {
 
-async function leerDatos(RANGES) {
-
-    const auth = new google.auth.GoogleAuth({
-        credentials: {
-            client_email: process.env.GOOGLE_CLIENT_EMAIL,
-            // El .replace(/\\n/g, '\n') corriege el problema de formato "Invalid JWT Signature"
-            private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-            project_id: process.env.GOOGLE_PROJECT_ID,
-        },
-        scopes: [
-            'https://www.googleapis.com/auth/spreadsheets.readonly'
-        ],
-    });
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
-
-    const res = await sheets.spreadsheets.values.batchGet({
-        spreadsheetId: process.env.SS_ID,
-        ranges: RANGES
-    });
-    //la cocacola
-    const matricesDeObjetos = res.data.valueRanges.map((rango) => {
-        const valores = rango.values || [];
-
-        if (valores.length < 2) return []; // si no hay datos o solo headers
-
-        const headers = valores[0]; // primera fila = encabezados
-        const filas = valores.slice(1);
-
-        // Convertir cada fila en un objeto usando los headers
-        const objetos = filas.map((fila) => {
-            const obj = {};
-            headers.forEach((header, i) => {
-                obj[header] = fila[i] !== undefined ? fila[i] : null;
-            });
-            return obj;
-        });
-
-        return objetos;
-    });
-
-    // console.log(matricesDeObjetos.length)
-    var result = {}
-    let i = 0;
-    for (var range of RANGES) {
-        result[range.split("!")[0]] = matricesDeObjetos[i];
-        i++;
+    const result = {};
+    for (const table of TABLES) {
+        result[table] = await selectRows(table);
     }
-    //console.log(JSON.stringify(result, null, 2));
 
-
-    return result
+    return result;
 
 }
 
 export async function checkValidClients(context) {
 
-    const e = await leerDatos(["platforms!A:T", "clients!A:H", "platformNames!A:B"]);
+    const e = await leerDatos(["platforms", "clients", "platformNames"]);
     const { platforms, clients, platformNames } = e;
     if (!platforms || !clients || !platformNames) return null;
 

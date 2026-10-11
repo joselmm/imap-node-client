@@ -9,6 +9,7 @@ import { consultarCodigo, obtenerNumeroLocal } from "./consultarCodigo.js";
 
 import { generatePassword, procesarCalculo, procesarPago } from "./utils.js"
 import { asignarPlataformas, queryData, updatePlatforms } from "./platformFunctions.js"
+import { eq, inList } from "./supabase.js"
 import { renewMultiplePlatforms } from "./renewPlatform.js"
 import PAYMENT_STATUSES from './paymentStatuses.enum.js'
 import { remplazarEtiquetas, fetchPlatformTemplate } from "./waTemplate.js"
@@ -349,7 +350,7 @@ export async function connectToWhatsApp() {
           if (emails.length > 0) {
             const isGroup = remoteJid.endsWith('@g.us');
             if (!isGroup) {
-              const clientRes = await queryData('clients', `@contact@ == '${numeroDeclarado}'`);
+              const clientRes = await queryData('clients', [eq('contact', numeroDeclarado)]);
               if (!clientRes.noError || !clientRes.data || clientRes.data.length === 0) {
                 return await sock.sendMessage(remoteJid, {
                   text: `❌ El número *${numeroDeclarado}* no tiene clientes registrados`
@@ -371,8 +372,7 @@ export async function connectToWhatsApp() {
             let platforms;
 
             if (clientIdsFilter) {
-              const clientCondition = [...clientIdsFilter].map(id => `@clientId@ == '${id}'`).join(' || ');
-              const platRes = await queryData('platforms', clientCondition);
+              const platRes = await queryData('platforms', [inList('clientId', [...clientIdsFilter])]);
               if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
                 await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas para este cliente`, edit: statusKey });
                 return;
@@ -381,8 +381,7 @@ export async function connectToWhatsApp() {
                 ? platRes.data.filter(p => emails.includes(p.email))
                 : platRes.data;
             } else {
-              const emailCondition = emails.map(e => `@email@ == '${e}'`).join(' || ');
-              const platRes = await queryData('platforms', emailCondition);
+              const platRes = await queryData('platforms', [inList('email', emails)]);
               if (!platRes.noError || !platRes.data || platRes.data.length === 0) {
                 await sock.sendMessage(remoteJid, { text: `❌ No se encontraron plataformas con esos emails`, edit: statusKey });
                 return;
@@ -395,10 +394,9 @@ export async function connectToWhatsApp() {
               return;
             }
 
-            const allCondition = `@id@ != ''`;
             const [platNamesRes, clientsRes] = await Promise.all([
-              queryData('platformNames', allCondition),
-              queryData('clients', allCondition),
+              queryData('platformNames'),
+              queryData('clients'),
             ]);
             const platformNames = platNamesRes.data || [];
             const clients = clientsRes.data || [];
