@@ -31,7 +31,7 @@ export async function asignarPlataformas(clienteEmail, plataformasEmails, sender
   const senderClients = clientResponse.data;
   const senderClientIds = new Set(senderClients.map(c => c.id));
 
-  const cliente = senderClients.find(c => c.emailContact === clienteEmail);
+  const cliente = senderClients.find(c => c.emailContact.toLowerCase() === clienteEmail.toLowerCase());
   if (!cliente) {
     return { noError: false, errorMessage: `El email ${clienteEmail} no pertenece a ninguno de tus clientes` };
   }
